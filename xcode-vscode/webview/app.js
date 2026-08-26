@@ -5,6 +5,19 @@ const SERVER_URL = init.serverUrl || 'http://localhost:7800';
 const WORKSPACE_ROOT = init.workspaceRoot || '';
 const vscode = (typeof acquireVsCodeApi === 'function') ? acquireVsCodeApi() : null;
 
+function renderDebug() {
+  const serverEl = document.getElementById('debug-serverUrl');
+  const wsEl = document.getElementById('debug-workspaceRoot');
+  const cspEl = document.getElementById('debug-csp');
+  const tokensEl = document.getElementById('debug-tokens');
+  
+  if (serverEl) serverEl.textContent = SERVER_URL || '(not set)';
+  if (wsEl) wsEl.textContent = WORKSPACE_ROOT || '(not set)';
+  if (cspEl) cspEl.textContent = init.csp || '(not set)';
+  if (tokensEl && init.cspTokens) tokensEl.textContent = init.cspTokens.join('\n');
+}
+
+
 // === Debug panel ===
 document.getElementById('debug-serverUrl').textContent = SERVER_URL;
 document.getElementById('debug-workspaceRoot').textContent = WORKSPACE_ROOT || '(none)';
@@ -70,6 +83,8 @@ function basename(p) {
   const parts = p.split('/');
   return parts[parts.length - 1] || p;
 }
+
+renderDebug();
 
 // === Scenarios ===
 async function loadScenarios() {
