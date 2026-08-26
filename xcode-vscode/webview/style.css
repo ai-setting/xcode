@@ -1,0 +1,285 @@
+/* Xcode webview */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  font-size: 13px;
+}
+
+.xc-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr 320px;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.xc-sidebar,
+.xc-agent {
+  background: var(--vscode-sideBar-background);
+  padding: 8px;
+  overflow-y: auto;
+  border-right: 1px solid var(--vscode-editorWidget-border);
+}
+
+.xc-agent {
+  border-right: none;
+  border-left: 1px solid var(--vscode-editorWidget-border);
+}
+
+.xc-main {
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.xc-header,
+.xc-agent-header {
+  font-weight: bold;
+  padding: 4px 0 8px 0;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--vscode-sideBarSectionHeader-foreground);
+}
+
+.xc-header-sub {
+  font-size: 11px;
+  opacity: 0.7;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--vscode-editorWidget-border);
+  margin-bottom: 8px;
+}
+
+.xc-main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--vscode-editorWidget-border);
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.scenario {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--vscode-editorWidget-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scenario-name {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+}
+
+.scenario-actions button {
+  margin-left: 4px;
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.xc-btn-mini {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-button-border, transparent);
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.xc-btn-mini:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.trace-node {
+  padding: 4px 0;
+  border-left: 2px solid transparent;
+  padding-left: 4px;
+  margin-left: 0;
+}
+
+.trace-node:hover {
+  border-left-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.trace-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.trace-func {
+  font-family: var(--vscode-editor-font-family);
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.trace-loc {
+  font-size: 10px;
+  opacity: 0.6;
+  font-family: var(--vscode-editor-font-family);
+}
+
+.trace-type-call {
+  color: var(--vscode-symbolIcon-functionForeground, #dcdcaa);
+}
+
+.trace-type-return {
+  color: var(--vscode-symbolIcon-variableForeground, #9cdcfe);
+}
+
+.trace-type-exception {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.xc-jump-btn {
+  background: transparent;
+  border: 1px solid var(--vscode-button-border, var(--vscode-editorWidget-border));
+  color: var(--vscode-foreground);
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.xc-jump-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.xc-detail {
+  background: var(--vscode-textCodeBlock-background);
+  padding: 6px 8px;
+  margin: 4px 0;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-left: 2px solid var(--vscode-textBlockQuote-border, #007acc);
+}
+
+.xc-detail.hidden {
+  display: none;
+}
+
+.xc-agent-messages {
+  height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.msg {
+  padding: 8px;
+  margin: 4px 0;
+  border-radius: 4px;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.msg.user {
+  background: var(--vscode-textCodeBlock-background);
+  border-left: 2px solid var(--vscode-textBlockQuote-border, #007acc);
+}
+
+.msg.agent {
+  background: var(--vscode-editorWidget-background);
+  border-left: 2px solid var(--vscode-inputOption-activeBorder, #007acc);
+}
+
+.msg.error {
+  background: var(--vscode-inputValidation-errorBackground);
+  border-left: 2px solid var(--vscode-errorForeground);
+  color: var(--vscode-errorForeground);
+}
+
+.xc-agent-input {
+  padding: 8px 0;
+  border-top: 1px solid var(--vscode-editorWidget-border);
+}
+
+.xc-agent-input textarea {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, transparent);
+  padding: 4px;
+  font-family: var(--vscode-font-family);
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.xc-agent-input button {
+  margin-top: 4px;
+  width: 100%;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 1px solid var(--vscode-button-border, transparent);
+  padding: 6px;
+  cursor: pointer;
+}
+
+.xc-agent-input button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.xc-debug {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-editorWidget-border);
+  padding: 4px 8px;
+  max-width: 420px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 11px;
+  z-index: 1000;
+  opacity: 0.95;
+}
+
+.xc-debug summary {
+  cursor: pointer;
+  font-weight: bold;
+  user-select: none;
+}
+
+.xc-debug-body {
+  padding-top: 8px;
+}
+
+.xc-debug h4 {
+  margin: 8px 0 4px 0;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.xc-debug pre {
+  background: var(--vscode-textCodeBlock-background);
+  padding: 4px;
+  margin: 0 0 4px 0;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.error {
+  color: var(--vscode-errorForeground);
+  padding: 8px;
+  background: var(--vscode-inputValidation-errorBackground);
+  border-left: 2px solid var(--vscode-errorForeground);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+}
+
+.success {
+  color: var(--vscode-terminal-ansiGreen);
+  padding: 4px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+}

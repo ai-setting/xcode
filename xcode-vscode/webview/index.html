@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="${csp}">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xcode</title>
+  <link rel="stylesheet" href="${styleUri}">
+</head>
+<body>
+  <div class="xc-layout">
+    <aside class="xc-sidebar">
+      <div class="xc-header">SCENARIOS</div>
+      <div class="xc-header-sub" id="xc-status">Loading...</div>
+      <div id="xc-scenarios"></div>
+    </aside>
+
+    <main class="xc-main">
+      <div class="xc-main-header">
+        <span id="xc-trace-title">Trace</span>
+          <button class="xc-btn-mini" id="xc-refresh">Refresh</button>
+        </div>
+      <div id="xc-trace"></div>
+    </main>
+
+    <aside class="xc-agent">
+      <div class="xc-agent-header">Xcode Agent</div>
+      <div class="xc-agent-messages" id="xc-messages"></div>
+      <div class="xc-agent-input">
+        <textarea id="xc-input" placeholder="Describe scenario..."></textarea>
+        <button id="xc-send">Send</button>
+      </div>
+    </aside>
+  </div>
+
+  <details class="xc-debug">
+    <summary>Debug</summary>
+    <div class="xc-debug-body">
+      <h4>Server URL</h4>
+      <pre id="debug-serverUrl"></pre>
+      <h4>Workspace Root</h4>
+      <pre id="debug-workspaceRoot"></pre>
+      <h4>CSP</h4>
+      <pre id="debug-csp"></pre>
+      <h4>Connect Tokens</h4>
+      <pre id="debug-tokens"></pre>
+    </div>
+  </details>
+
+  <script nonce="${nonce}">
+    window.__XCODE_INIT__ = ${initData};
+  </script>
+  <script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+{
+  "name": "xcode",
+  "displayName": "Xcode",
+  "description": "Non-invasive multi-language trace runner + AI scenario-driven debugger",
+  "version": "0.1.0",
+  "publisher": "xcode",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Debuggers", "Other"],
+  "keywords": ["trace", "scenario", "ontology", "debug"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "xcode.showPanel",
+        "title": "Show Xcode Panel",
+        "category": "Xcode"
+      },
+      {
+        "command": "xcode.runScenario",
+        "title": "Run Scenario",
+        "category": "Xcode"
+      },
+      {
+        "command": "xcode.showTrace",
+        "title": "Show Trace",
+        "category": "Xcode"
+      }
+    ],
+    "configuration": {
+      "title": "Xcode",
+      "properties": {
+        "xcode.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:7800",
+          "description": "Xcode backend service URL"
+        },
+        "xcode.autoStartBackend": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-start backend Python server when extension activates"
+        },
+        "xcode.workspaceRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Workspace root for resolving absolute paths from trace entries"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -watch",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {}
+}
