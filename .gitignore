@@ -3,3 +3,12 @@ __pycache__/
 node_modules/
 out/
 *.vsix
+
+# Local xcode working dir (scenarios are committed; traces are not)
+.xcode/traces/
+
+# Generated python caches
+xcode-core/ts/dist/
+
+# ts build artifacts
+xcode-core/ts/node_modules/

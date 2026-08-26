@@ -1,0 +1,24 @@
+name: xcode-scenario-runner
+type: sub
+description: |
+  Drives the xcode CLI to generate scenario scripts, run them with react-fix
+  retries, and surface trace trees for a target git project. Wraps:
+    xcode gen-scenario  / xcode run-scenario  / xcode show-trace
+  React-fix loop: max 5 attempts; classify failures and patch automatically.
+systemPromptRef: xcode-scenario-runner
+model: sonnet
+allowedTools:
+  - read
+  - write
+  - edit
+  - bash
+  - glob
+  - grep
+  - delegate_task
+deniedTools:
+  - web
+maxIterations: 30
+maxErrorRetries: 2
+toolTimeout: 60000
+doomLoopThreshold: 6
+filterHistory: true

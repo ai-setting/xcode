@@ -52,6 +52,8 @@ class XcodeTracer:
         self.call_count = defaultdict(int)
         self.total_time = defaultdict(float)
         self.last_enter = {}
+        # v0.2.0 — react-fix support: count exceptions for non-zero exit.
+        self.exception_count = 0
 
     def should_trace(self, frame):
         """决定是否追踪这一帧"""
@@ -201,6 +203,7 @@ class XcodeTracer:
                 'timestamp': time.time() - self.start_time,
             }
             self.entries.append(entry)
+            self.exception_count += 1
 
         return self
 
@@ -281,6 +284,9 @@ def main():
     finally:
         sys.settrace(None)
         tracer.save(options.output)
+        # v0.2.0 — exit non-zero if any exception was traced so the
+        # TS runner can classify the failure and react-fix the scenario.
+        sys.exit(2 if tracer.exception_count > 0 else 0)
 
 
 if __name__ == '__main__':
