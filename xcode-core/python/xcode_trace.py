@@ -61,12 +61,43 @@ class XcodeTracer:
         # 绝对路径
         abs_path = os.path.abspath(co.co_filename)
 
-        # 排除 <...> 形式（exec / eval / REPL）
+        # 排除 <...> 形式（exec / eval / REPL / 模块顶层）
         if co.co_filename.startswith('<') and co.co_filename.endswith('>'):
             return False
         # 排除 generator / comprehension
         if co.co_name in ('<genexpr>', '<listcomp>', '<dictcomp>', '<setcomp>'):
             return False
+        # 排除模块顶层（<module> 不是函数调用，只是 import）
+        if co.co_name == '<module>':
+            return False
+        # 排除 @dataclass 自动生成的 __init__ 模式
+        # Python @dataclass 生成的 __init__ 在 trace 里特征：
+        #   - co_qualname == co_name（不带 .）
+        #   - co_argcount == 0（没有显示参数）
+        #   - f_locals 为空
+        #   - co_firstlineno 在文件 < 100 行
+        #   - **函数名大写开头**（Python 约定：class PascalCase，function snake_case）
+        #   - **f_back 也在同一个文件**（class 定义过程）
+        # 这是 Python 3.10+ 的 dataclass 行为
+        qualname_check = co.co_qualname if hasattr(co, 'co_qualname') else co.co_name
+        if qualname_check == co.co_name:
+            is_pascal_case = co.co_name and co.co_name[0].isupper()
+            same_file = (frame.f_back and 
+                        os.path.abspath(frame.f_back.f_code.co_filename) == abs_path)
+            if (is_pascal_case and
+                co.co_argcount == 0 and
+                not frame.f_locals and
+                co.co_firstlineno > 0 and
+                co.co_firstlineno < 100 and
+                same_file):
+                return False
+        # 排除 dataclass / namedtuple 自动生成的方法
+        if co.co_name in ('__init__', '__init_subclass__', '__class_getitem__', '__repr__', '__eq__', '__hash__'):
+            return False
+        # 排除常见 dunder（除非 include_dunders=True）
+        if not getattr(self.options, 'include_dunders', False):
+            if co.co_name.startswith('__') and co.co_name.endswith('__'):
+                return False
         # 默认排除 stdlib
         if not self.options.include_stdlib and _is_stdlib_path(abs_path):
             return False
@@ -103,11 +134,16 @@ class XcodeTracer:
 
     def _get_qualname(self, frame):
         co = frame.f_code
+        # 默认用 co_qualname（如 OntologyNode.__init__，包含完整限定名）
         qualname = co.co_qualname if hasattr(co, 'co_qualname') else co.co_name
-        if 'self' in frame.f_locals:
+        # 如果有 self，加类名前缀（但通常 co_qualname 已经包含）
+        if 'self' in frame.f_locals and '.<' not in qualname:
             self_obj = frame.f_locals['self']
             if hasattr(self_obj, '__class__'):
                 qualname = f"{self_obj.__class__.__name__}.{co.co_name}"
+        # 跳过模块顶层执行（<module>）
+        if qualname == '<module>':
+            return None
         return qualname
 
     def _extract_args(self, frame):
