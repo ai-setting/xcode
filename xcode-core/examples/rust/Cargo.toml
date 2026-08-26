@@ -1,0 +1,21 @@
+[package]
+name = "xcode_examples"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tokio = { version = "1", features = ["full"] }
+
+[[bin]]
+name = "simple_function"
+path = "src/simple_function.rs"
+
+[[bin]]
+name = "class_methods"
+path = "src/class_methods.rs"
+
+[[bin]]
+name = "tracing_demo"
+path = "src/tracing_demo.rs"

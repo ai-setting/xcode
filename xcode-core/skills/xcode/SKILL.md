@@ -120,3 +120,22 @@ The sub-agent manifest follows the code-reader convention
 - **The template-mode scenario generator** skips LLM calls when
   `claude` is not on PATH. Provide `--description` so users always
   know what to fix manually if LLM mode is unavailable.
+
+---
+
+## 多语言示例
+
+参考 `xcode-core/examples/<language>/`，每个示例都有 README 解释如何使用。
+
+| 语言 | 路径 | 关键工具 |
+|---|---|---|
+| Python | `xcode-core/examples/python/` | `xcode trace` + `sys.settrace` |
+| TypeScript | `xcode-core/examples/typescript/` | V8 Inspector / Monkey patch |
+| Go | `xcode-core/examples/go/` | `dlv trace` (Delve) |
+| Rust | `xcode-core/examples/rust/src/` | `tracing` crate + `#[instrument]` |
+
+每个目录都包含：
+- `README.md` - 工具选择 + 使用方法
+- 简单函数示例
+- 类/结构体方法示例
+- 生产级 trace 演示（Python 的 multi-file / TS 的 inspector / Go 的 dlv / Rust 的 tracing）

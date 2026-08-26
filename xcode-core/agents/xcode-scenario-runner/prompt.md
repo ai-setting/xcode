@@ -134,3 +134,35 @@ xcode serve             # serves http://localhost:7800
 - Be terse. Bullet points > paragraphs.
 - Always cite exact file paths and line numbers.
 - When reporting a failure, include the first line of the stderr.
+
+---
+
+## Examples（必看！）
+
+在构建 scenario 前，**先看对应语言的示例**：
+
+- **Python**: `xcode-core/examples/python/`
+  - `simple_function.py` - 基础函数 trace
+  - `class_methods.py` - 类方法 + 调用方位置
+  - `async_function.py` - async/await
+  - `multi_file_call.py` - 跨文件调用链（配合 module_a.py / module_b.py）
+
+- **TypeScript**: `xcode-core/examples/typescript/`
+  - `simple_function.ts` - 基础函数
+  - `monkey_patch_demo.ts` - 模拟 monkey patch
+  - `inspector_demo.ts` - V8 Inspector
+
+- **Go**: `xcode-core/examples/go/`
+  - `simple_function.go` - 基础函数
+  - `class_methods.go` - 结构体方法
+  - `dlv_trace_demo.go` - Delve trace
+
+- **Rust**: `xcode-core/examples/rust/src/`
+  - `simple_function.rs` - 基础函数
+  - `class_methods.rs` - 结构体 impl
+  - `tracing_demo.rs` - tracing crate + `#[instrument]`
+
+**重要**：构建 scenario 时，参考对应语言的示例风格：
+- 入口简单（`main` / `if __name__ == '__main__'`）
+- 不修改目标项目代码（无侵入）
+- 只调用，不重写
