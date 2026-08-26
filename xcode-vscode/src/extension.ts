@@ -128,7 +128,7 @@ async function showPanel(context: vscode.ExtensionContext) {
     .replace('${styleUri}', styleUri.toString())
     .replace('${scriptUri}', scriptUri.toString())
     .replace('${csp}', csp)
-    .replace('${nonce}', nonce)
+    .replace(/\$\{nonce\}/g, nonce)
     .replace('${initData}', JSON.stringify(initData));
 
   panel.webview.html = html;
