@@ -204,42 +204,63 @@ function renderSummary(s) {
 }
 
 function renderTraceNode(n) {
-  const indent = n.depth * 18;
+  const indent = n.depth * 24;
   const loc = `${basename(n.file)}:${n.line}`;
+  // Tree connector（│ 树形连接符）
+  const treePrefix = n.depth > 0 ? '<span class="trace-tree-prefix">' + '│ '.repeat(n.depth) + '└─</span> ' : '';
+  // Caller 信息
   const caller = n.caller && n.caller.caller_func
-    ? `<button class="xc-jump-btn jump-call-btn"
-              data-file="${escapeHtml(n.caller.caller_file || '')}"
-              data-line="${n.caller.caller_line || 0}">
-         ↑ ${escapeHtml(basename(n.caller.caller_file || ''))}:${n.caller.caller_line || 0}
-       </button>`
-    : '';
+    ? `<span class="trace-caller">from ${escapeHtml(basename(n.caller.caller_file || '?'))}:${n.caller.caller_line || 0}</span>`
+    : '<span class="trace-caller">root</span>';
+  // 跳转按钮
   const defBtn = `<button class="xc-jump-btn jump-def-btn"
                        data-file="${escapeHtml(n.file)}"
-                       data-line="${n.line}">
-                    ↓ def:${n.line}
+                       data-line="${n.line}"
+                       title="Jump to definition">
+                    ↓ def
                   </button>`;
-
+  const callerBtn = n.caller && n.caller.caller_file
+    ? `<button class="xc-jump-btn jump-call-btn"
+                 data-file="${escapeHtml(n.caller.caller_file || '')}"
+                 data-line="${n.caller.caller_line || 0}"
+                 title="Open caller in split">
+              ↑ call
+            </button>`
+    : '';
+  
+  // 详情块
   const argsJson = JSON.stringify(n.args || {}, null, 2);
   const argsBlock = Object.keys(n.args || {}).length
-    ? `<pre class="xc-detail hidden" id="args-${n.id}">${escapeHtml(argsJson)}</pre>`
+    ? `<pre class="xc-detail hidden" id="args-${n.id}">args: ${escapeHtml(argsJson)}</pre>`
     : '';
   const resultBlock = n.result !== null && n.result !== undefined
-    ? `<pre class="xc-detail hidden" id="result-${n.id}">${escapeHtml(n.result)}</pre>`
+    ? `<pre class="xc-detail hidden" id="result-${n.id}">result: ${escapeHtml(n.result)}</pre>`
     : '';
   const excBlock = n.exception
-    ? `<pre class="xc-detail" id="exc-${n.id}">${escapeHtml(n.exception)}</pre>`
+    ? `<pre class="xc-detail">exception: ${escapeHtml(n.exception)}</pre>`
     : '';
-
+  
+  // 状态图标
+  let statusIcon = '●';
+  let statusClass = 'trace-ok';
+  if (n.exception) {
+    statusIcon = '✗';
+    statusClass = 'trace-err';
+  }
+  
   return `
-    <div class="trace-node" style="margin-left: ${indent}px;">
-      <div class="trace-header">
-        <span class="trace-func trace-type-call">${escapeHtml(n.qualname)}</span>
+    <div class="trace-node ${statusClass}" data-depth="${n.depth}">
+      <div class="trace-header" style="padding-left: ${indent}px;">
+        ${treePrefix}<span class="trace-status">${statusIcon}</span>
+        <span class="trace-func">${escapeHtml(n.qualname)}</span>
         <span class="trace-loc">${escapeHtml(loc)}</span>
-        ${defBtn}
         ${caller}
+        <span class="trace-spacer"></span>
+        ${defBtn}
+        ${callerBtn}
         <button class="xc-jump-btn toggle-args-btn" data-target="args-${n.id}">args</button>
         ${n.result !== null && n.result !== undefined ? `<button class="xc-jump-btn toggle-result-btn" data-target="result-${n.id}">result</button>` : ''}
-        ${n.duration_ms ? `<span class="trace-loc">${n.duration_ms}ms</span>` : ''}
+        ${n.duration_ms ? `<span class="trace-duration">${n.duration_ms}ms</span>` : ''}
       </div>
       ${argsBlock}
       ${resultBlock}

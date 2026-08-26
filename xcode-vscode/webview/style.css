@@ -227,6 +227,75 @@ body {
   background: var(--vscode-button-hoverBackground);
 }
 
+
+/* Tree-style trace display */
+.trace-tree-prefix {
+  color: var(--vscode-editorIndentGuide.activeBackground, #888);
+  font-family: monospace;
+  white-space: pre;
+}
+
+.trace-status {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+}
+
+.trace-ok .trace-status {
+  color: #4ec9b0;
+}
+
+.trace-err .trace-status {
+  color: #f48771;
+}
+
+.trace-func {
+  font-family: var(--vscode-editor-font-family);
+  font-weight: 600;
+  color: var(--vscode-symbolIcon-functionForeground, #dcdcaa);
+}
+
+.trace-loc {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  opacity: 0.7;
+  margin-left: 4px;
+}
+
+.trace-caller {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 10px;
+  opacity: 0.6;
+  margin-left: 4px;
+  font-style: italic;
+}
+
+.trace-spacer {
+  flex: 1;
+}
+
+.trace-duration {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 10px;
+  color: #4ec9b0;
+  margin-left: 4px;
+  font-weight: bold;
+}
+
+.trace-node {
+  border-left: 2px solid transparent;
+  margin: 2px 0;
+}
+
+.trace-node:hover {
+  border-left-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-hoverBackground);
+}
+
+.trace-err {
+  border-left-color: #f48771 !important;
+}
+
 .xc-debug {
   position: fixed;
   bottom: 0;

@@ -163,7 +163,18 @@ async function openFileFromTrace(filePath: string, line: number) {
 
   try {
     const doc = await vscode.workspace.openTextDocument(absolutePath);
-    const editor = await vscode.window.showTextDocument(doc);
+    
+    // 如果是 def 跳转：在当前编辑器定位行
+    // 如果是 call 跳转：在分窗打开
+    // 区分方式：用不同 type 的消息
+    // 但是 openFileFromTrace 当前没传 type...
+    // 我们默认用 Beside（分窗）
+    const editor = await vscode.window.showTextDocument(doc, {
+      viewColumn: vscode.ViewColumn.Beside,
+      preserveFocus: false,
+      preview: false,
+    });
+    
     const targetLine = Math.max(0, (line || 1) - 1);
     const range = new vscode.Range(targetLine, 0, targetLine, 0);
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
