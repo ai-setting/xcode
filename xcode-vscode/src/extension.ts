@@ -16,8 +16,12 @@ function shouldAutoStart(): boolean {
 }
 
 function startBackend(extensionPath: string): void {
+  // 先 kill 任何旧的后端进程（防止用旧版本 trace runner）
   if (backendProcess) {
-    return;
+    try {
+      backendProcess.kill('SIGTERM');
+    } catch {}
+    backendProcess = null;
   }
   // 从 xcode-vscode 找到 xcode-core/python
   const serverScript = path.resolve(extensionPath, '..', 'xcode-core', 'python', 'xcode_server.py');
