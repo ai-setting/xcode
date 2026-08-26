@@ -107,11 +107,19 @@ function renderScenarios(scenarios) {
     <div class="scenario">
       <span class="scenario-name" title="${escapeHtml(s.file)}">${escapeHtml(s.name)}</span>
       <span class="scenario-actions">
-        <button class="xc-btn-mini" onclick="runScenario('${escapeHtml(s.name)}')">Run</button>
-        <button class="xc-btn-mini" onclick="showTrace('${escapeHtml(s.name)}')">Trace</button>
+        <button class="xc-btn-mini" data-action="run" data-name="${escapeHtml(s.name)}">Run</button>
+        <button class="xc-btn-mini" data-action="trace" data-name="${escapeHtml(s.name)}">Trace</button>
       </span>
     </div>
   `).join('');
+  
+  // 用 addEventListener 绑定（避免内联 onclick 被 CSP 阻止）
+  el.querySelectorAll('[data-action="run"]').forEach(btn => {
+    btn.addEventListener('click', () => window.runScenario(btn.dataset.name));
+  });
+  el.querySelectorAll('[data-action="trace"]').forEach(btn => {
+    btn.addEventListener('click', () => window.showTrace(btn.dataset.name));
+  });
 }
 
 window.runScenario = async function(name) {
