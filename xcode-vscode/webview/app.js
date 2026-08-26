@@ -2,17 +2,14 @@
 
 const init = window.__XCODE_INIT__ || {};
 const SERVER_URL = init.serverUrl || 'http://localhost:7800';
-const WORKSPACE_ROOT = init.workspaceRoot || '';
 const vscode = (typeof acquireVsCodeApi === 'function') ? acquireVsCodeApi() : null;
 
 function renderDebug() {
   const serverEl = document.getElementById('debug-serverUrl');
-  const wsEl = document.getElementById('debug-workspaceRoot');
   const cspEl = document.getElementById('debug-csp');
   const tokensEl = document.getElementById('debug-tokens');
   
   if (serverEl) serverEl.textContent = SERVER_URL || '(not set)';
-  if (wsEl) wsEl.textContent = WORKSPACE_ROOT || '(not set)';
   if (cspEl) cspEl.textContent = init.csp || '(not set)';
   if (tokensEl && init.cspTokens) tokensEl.textContent = init.cspTokens.join('\n');
 }

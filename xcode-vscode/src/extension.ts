@@ -11,12 +11,6 @@ function getServerUrl(): string {
   return vscode.workspace.getConfiguration('xcode').get<string>('serverUrl') || 'http://localhost:7800';
 }
 
-function getWorkspaceRoot(): string {
-  const cfg = vscode.workspace.getConfiguration('xcode').get<string>('workspaceRoot') || '';
-  if (cfg) return cfg;
-  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
-}
-
 function shouldAutoStart(): boolean {
   return vscode.workspace.getConfiguration('xcode').get<boolean>('autoStartBackend') !== false;
 }
@@ -121,10 +115,8 @@ async function showPanel(context: vscode.ExtensionContext) {
     `connect-src ${panel.webview.cspSource} ${cspTokens.join(' ')}`,
   ].join('; ');
 
-  const workspaceRoot = getWorkspaceRoot();
   const initData = {
     serverUrl: backendUrl,
-    workspaceRoot,
     csp,
     cspTokens,
     nonce,
@@ -161,10 +153,8 @@ async function openFileFromTrace(filePath: string, line: number) {
     return;
   }
 
-  const workspaceRoot = getWorkspaceRoot();
-  const absolutePath = path.isAbsolute(filePath)
-    ? filePath
-    : path.join(workspaceRoot || '', filePath);
+  // trace entry 应该已经是绝对路径（由后端写入）
+  const absolutePath = filePath;
 
   if (!fs.existsSync(absolutePath)) {
     vscode.window.showErrorMessage(`xcode: file not found: ${absolutePath}`);

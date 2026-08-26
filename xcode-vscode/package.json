@@ -2,7 +2,7 @@
   "name": "xcode",
   "displayName": "Xcode",
   "description": "Non-invasive multi-language trace runner + AI scenario-driven debugger",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "xcode",
   "engines": {
     "vscode": "^1.85.0"
@@ -35,17 +35,7 @@
         "xcode.serverUrl": {
           "type": "string",
           "default": "http://localhost:7800",
-          "description": "Xcode backend service URL. For SSH remote: http://<remote-ip>:7800"
-        },
-        "xcode.autoStartBackend": {
-          "type": "boolean",
-          "default": true,
-          "description": "Auto-start backend Python server when extension activates"
-        },
-        "xcode.workspaceRoot": {
-          "type": "string",
-          "default": "",
-          "description": "Workspace root for resolving absolute paths from trace entries"
+          "description": "Xcode backend service URL (Python server). For SSH remote: http://<remote-ip>:7800. Scenarios and traces are managed by the backend."
         }
       }
     }
