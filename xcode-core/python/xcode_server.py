@@ -202,7 +202,7 @@ class XcodeHandler(BaseHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description='Xcode Backend HTTP Server')
     parser.add_argument('--port', type=int, default=7800)
-    parser.add_argument('--host', default='127.0.0.1')
+    parser.add_argument('--host', default='0.0.0.0')
     args = parser.parse_args()
 
     server = ThreadingHTTPServer((args.host, args.port), XcodeHandler)

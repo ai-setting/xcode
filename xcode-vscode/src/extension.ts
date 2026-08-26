@@ -32,7 +32,7 @@ function startBackend(extensionPath: string): void {
     return;
   }
   console.log(`[xcode] Starting backend: python3 ${serverScript}`);
-  backendProcess = spawn('python3', [serverScript, '--port', '7800'], {
+  backendProcess = spawn('python3', [serverScript, '--host', '0.0.0.0', '--port', '7800'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: false,
   });
