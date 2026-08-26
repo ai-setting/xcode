@@ -17,7 +17,6 @@ function renderDebug() {
 
 // === Debug panel ===
 document.getElementById('debug-serverUrl').textContent = SERVER_URL;
-document.getElementById('debug-workspaceRoot').textContent = WORKSPACE_ROOT || '(none)';
 if (init.csp) document.getElementById('debug-csp').textContent = init.csp;
 if (init.cspTokens) document.getElementById('debug-tokens').textContent = init.cspTokens.join('\n');
 
