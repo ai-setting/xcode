@@ -2,7 +2,7 @@
   "name": "xcode",
   "displayName": "Xcode",
   "description": "Non-invasive multi-language trace runner + AI scenario-driven debugger",
-  "version": "0.3.18",
+  "version": "0.3.19",
   "publisher": "xcode",
   "engines": {
     "vscode": "^1.85.0"

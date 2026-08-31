@@ -215,19 +215,65 @@ function renderTraceTree(entries, summary) {
   }
 
   // 构造嵌套 tree：用 caller.caller_id 关联父子
+  // 加 robust fallback：v0.3.17 改 caller 检测（_unwrap_frame 跳过 wrapper）后，
+  // 某些节点的 caller_id 可能指向没被 trace 的函数（如 sync_wrapper），
+  // callById 里找不到，会被错误当 root，tree 结构错乱 → 折叠按钮失效。
+  // 两遍构建：
+  //   第一遍：caller_id 直接关联
+  //   第二遍：剩下的节点按 depth 找父节点（depth=n.depth-1 的最后 sibling）
   const arr = Array.from(callById.values()).sort((a, b) => a.ts - b.ts);
   const roots = [];
   // 索引：便于后续根据 id 找节点
   traceNodeById = {};
   arr.forEach(n => { traceNodeById[n.id] = n; });
+
+  // 第一遍：caller_id 关联
   for (const n of arr) {
     const callerId = n.caller && n.caller.caller_id;
     if (callerId != null && callById.has(callerId)) {
-      callById.get(callerId).children.push(n);
+      const parent = callById.get(callerId);
+      parent.children.push(n);
+      n._parent = parent;
+    }
+  }
+  // 第二遍：fallback——按 depth 找父节点
+  // 对于还没被分配 parent 的节点，找 depth = n.depth - 1 的最近节点作为父节点。
+  // 这样处理 v0.3.17 caller 检测改动后的"orphan"节点：
+  //   - 它们没找到 caller_id，但 trace 顺序还保留了 depth 信息
+  //   - 用深度减 1 的最近节点作为父节点，可以保证 tree 结构稳定、折叠按钮正常
+  // 同时跟踪每个深度最近出现的节点（lastByDepth），fallback 时直接查表
+  const lastByDepth = {};
+  for (const n of arr) {
+    lastByDepth[n.depth] = n;
+  }
+  for (const n of arr) {
+    if (n._parent) continue;
+    if (n.depth === 0) {
+      roots.push(n);
+      continue;
+    }
+    // 找最近的、不是 fallback 上来的 depth = n.depth - 1 节点
+    let parent = null;
+    for (let d = n.depth - 1; d >= 0; d--) {
+      const candidate = lastByDepth[d];
+      if (candidate && !candidate._isFallback) {
+        parent = candidate;
+        break;
+      }
+    }
+    if (parent) {
+      parent.children.push(n);
+      n._parent = parent;
+      // 标记 n 为 fallback 节点：避免更深层 orphan 把它当父节点
+      n._isFallback = true;
     } else {
+      // 实在找不到（truly orphan），就当 root
       roots.push(n);
     }
   }
+
+  // 清掉临时标记
+  arr.forEach(n => { delete n._parent; delete n._isFallback; });
   const html = roots.map(r => renderTraceNode(r, 0, [])).join('');
   const summaryHtml = summary ? renderSummary(summary) : '';
   return summaryHtml + html;
