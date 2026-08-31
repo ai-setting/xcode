@@ -12,3 +12,4 @@ xcode-core/ts/dist/
 
 # ts build artifacts
 xcode-core/ts/node_modules/
+traces.db
