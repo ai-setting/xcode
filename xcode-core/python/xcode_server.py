@@ -18,15 +18,23 @@ import time
 import argparse
 import subprocess
 from pathlib import Path
+import platformdirs  # xdg-basedir 替代品（跨平台）
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
-# Default scenarios directory: <cwd>/.xcode/scenarios
-# Overridable via XCODE_SCENARIOS_DIR env var or --scenarios-dir CLI arg.
-# This matches the convention used by `xcode init` (which creates .xcode/{scenarios,traces}/)
-# so the backend, the webview, and the agent all agree on the same path.
-SCENARIOS_DIR = Path(os.environ.get('XCODE_SCENARIOS_DIR') or (Path.cwd() / '.xcode' / 'scenarios'))
-TRACES_DIR = Path(os.environ.get('XCODE_TRACES_DIR') or (Path.cwd() / '.xcode' / 'traces'))
+# 默认用 XDG 标准目录（跨平台）：
+# - Linux:   ~/.local/share/xcode/{scenarios,traces}
+# - macOS:   ~/Library/Application Support/xcode/{scenarios,traces}
+# - Windows: %LOCALAPPDATA%\xcode\{scenarios,traces}
+# 可通过 XCODE_SCENARIOS_DIR / XCODE_TRACES_DIR 环境变量覆盖
+# 也可通过 --scenarios-dir / --traces-dir CLI 参数覆盖
+
+USER_DATA_DIR = Path(platformdirs.user_data_dir('xcode', 'xcode-team'))
+DEFAULT_SCENARIOS_DIR = USER_DATA_DIR / 'scenarios'
+DEFAULT_TRACES_DIR = USER_DATA_DIR / 'traces'
+
+SCENARIOS_DIR = Path(os.environ.get('XCODE_SCENARIOS_DIR') or DEFAULT_SCENARIOS_DIR)
+TRACES_DIR = Path(os.environ.get('XCODE_TRACES_DIR') or DEFAULT_TRACES_DIR)
 TRACES_DIR.mkdir(parents=True, exist_ok=True)
 SCENARIOS_DIR.mkdir(parents=True, exist_ok=True)
 SERVER_DIR = Path(os.path.dirname(os.path.abspath(__file__)))

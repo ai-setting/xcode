@@ -29,10 +29,35 @@ function startBackend(extensionPath: string): void {
     console.warn(`[xcode] Server script not found at ${serverScript}`);
     return;
   }
+  // workspace：用户工作区（或 cwd）
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+  
+  // scenarios_dir 与 TS CLI 保持一致：<workspace>/.xcode/scenarios
+  const scenariosDir = path.join(workspaceRoot, '.xcode', 'scenarios');
+  const tracesDir = path.join(workspaceRoot, '.xcode', 'traces');
+  
+  // 确保目录存在
+  try {
+    fs.mkdirSync(scenariosDir, { recursive: true });
+    fs.mkdirSync(tracesDir, { recursive: true });
+  } catch (e) {
+    console.warn(`[xcode] Failed to create dirs: ${e}`);
+  }
+  
   console.log(`[xcode] Starting backend: python3 ${serverScript}`);
-  backendProcess = spawn('python3', [serverScript, '--host', '0.0.0.0', '--port', '7800'], {
+  console.log(`[xcode] workspace: ${workspaceRoot}`);
+  console.log(`[xcode] scenarios_dir: ${scenariosDir}`);
+  
+  backendProcess = spawn('python3', [
+    serverScript,
+    '--host', '0.0.0.0',
+    '--port', '7800',
+    '--scenarios-dir', scenariosDir,
+    '--traces-dir', tracesDir,
+  ], {
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: false,
+    cwd: workspaceRoot,  // 让 subprocess cwd = workspace
   });
   backendProcess.stdout?.on('data', (d) => console.log(`[xcode-backend] ${d.toString().trim()}`));
   backendProcess.stderr?.on('data', (d) => console.error(`[xcode-backend] ${d.toString().trim()}`));
