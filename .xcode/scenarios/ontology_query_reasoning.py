@@ -1,133 +1,154 @@
 #!/usr/bin/env python3
-"""scenario: ontology_query_reasoning — 真实查询 ontology graph。
+"""scenario: ontology_query_reasoning — 在 ontology graph 上查询。
 
-Description: 
-真实调用 tong-ontology 查询 API。
-通过 Python wrapper 调用：
-- step_1_load_graph()      - load_graph() 加载 ontology.json
-- step_2_search_users()     - search_nodes('user')
-- step_3_node_detail()      - get_node_detail(first_user)
-- step_4_extract_summary()  - 摘要输出
+Description:
+**不依赖任何目标项目的内部 trace 系统**（如 @TracedAs / logtrace / Cython）。
+纯 Python 实现：load JSON + search + filter。
+xcode 的 sys.settrace 自动 trace 所有函数。
+
+**重要**：
+- 不 import 目标项目（tong-ontology）的内部模块
+- 只 import 标准库
+- 如果需要数据，先 load JSON（step_1）
+
+调用链（可被 trace）：
+main
+└── query_ontology
+    ├── step_1_load_graph       (load ontology.json)
+    ├── step_2_search_nodes    (关键词搜索)
+    ├── step_3_filter_by_type   (按 entity/operator 过滤)
+    └── step_4_extract_summary  (摘要输出)
 """
 from __future__ import annotations
 
 import os
-import sys
+import re
 import json
+import sys
 import traceback
+from pathlib import Path
 
 WORKSPACE = "/home/dzk/work/codework/personal/roy_world/xcode"
 SCENARIO_NAME = "ontology_query_reasoning"
 
-# tong-ontology 路径
-TONG_ONTOLOGY_ROOT = "/home/dzk/work/codework/tong_agents/tong-ontology"
-ONTOLOGY_OUTPUT_DIR = os.path.join(
-    WORKSPACE, ".xcode", "traces", "ontology_extraction"
+# ontology.json 由 ontology_extraction.py 生成
+ONTOLOGY_JSON = os.path.join(
+    WORKSPACE, ".xcode", "traces", "ontology_extraction", "ontology.json"
 )
-ONTOLOGY_JSON = os.path.join(ONTOLOGY_OUTPUT_DIR, "ontology.json")
-TONGAGENTS_SITE = "/tmp/verify-3184/.venv/lib/python3.12/site-packages"
-
-
-def _setup_paths() -> None:
-    paths = [
-        os.path.join(TONG_ONTOLOGY_ROOT, "packages", "ontology-builder", "src"),
-        os.path.join(TONG_ONTOLOGY_ROOT, "packages", "ontology-contracts", "src"),
-        os.path.join(TONG_ONTOLOGY_ROOT, "packages", "ontology-implementation", "src"),
-        os.path.join(TONG_ONTOLOGY_ROOT, "packages", "inference-engine", "src"),
-        os.path.join(TONG_ONTOLOGY_ROOT, "packages", "tongagents-adapter", "src"),
-        TONGAGENTS_SITE,
-    ]
-    for p in paths:
-        if p not in sys.path:
-            sys.path.insert(0, p)
 
 
 def step_1_load_graph() -> dict:
-    """Step 1: load graph from JSON."""
-    from tong_ontology_builder.query.load_graph import load_graph
+    """Step 1: load ontology.json。"""
+    if not os.path.exists(ONTOLOGY_JSON):
+        raise FileNotFoundError(
+            f"ontology.json not found at {ONTOLOGY_JSON}. "
+            f"Run ontology_extraction scenario first."
+        )
     
-    print(f"[scenario:{SCENARIO_NAME}] step_1_load_graph: from {ONTOLOGY_OUTPUT_DIR}")
-    graph = load_graph(ONTOLOGY_OUTPUT_DIR)
+    with open(ONTOLOGY_JSON, encoding="utf-8") as f:
+        graph = json.load(f)
     
-    return {
-        "node_count": len(graph.nodes),
-        "edge_count": len(graph.edges),
-        "graph": graph,
-    }
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+    
+    print(f"[scenario:{SCENARIO_NAME}] step_1_load_graph: {len(nodes)} nodes, {len(edges)} edges")
+    return graph
 
 
-def step_2_search_users(graph) -> list:
-    """Step 2: search_nodes('user')."""
-    from tong_ontology_builder.query.search import search_nodes
+def _score_node(node: dict, needle: str) -> int:
+    """评分：匹配 label/file/attributes 中 needle 出现次数。"""
+    score = 0
+    needle_lower = needle.lower()
     
-    print(f"[scenario:{SCENARIO_NAME}] step_2_search_users: searching 'user'")
-    results = search_nodes(graph, "user")
-    print(f"[scenario:{SCENARIO_NAME}] found {len(results)} matches")
+    # label
+    if needle_lower in node.get("label", "").lower():
+        score += 10
     
+    # id
+    if needle_lower in node.get("id", "").lower():
+        score += 5
+    
+    # file
+    if needle_lower in node.get("file", "").lower():
+        score += 2
+    
+    # attributes（entity 有）
+    for attr in node.get("attributes", []):
+        attr_text = f"{attr.get('name', '')} {attr.get('description', '')}".lower()
+        if needle_lower in attr_text:
+            score += 1
+    
+    return score
+
+
+def step_2_search_nodes(graph: dict, keyword: str = "user") -> list:
+    """Step 2: 关键词搜索。"""
+    nodes = graph.get("nodes", [])
+    scored = []
+    
+    for node in nodes:
+        score = _score_node(node, keyword)
+        if score > 0:
+            scored.append((score, node))
+    
+    # 按 score 降序
+    scored.sort(key=lambda x: -x[0])
+    results = [n for _, n in scored]
+    
+    print(f"[scenario:{SCENARIO_NAME}] step_2_search_nodes('{keyword}'): {len(results)} matches")
     return results
 
 
-def step_3_get_node_detail(graph, node_id: str) -> dict | None:
-    """Step 3: get_node_detail(first_user)."""
-    from tong_ontology_builder.query.node_detail import get_node_detail
-    
-    print(f"[scenario:{SCENARIO_NAME}] step_3_node_detail: {node_id}")
-    detail = get_node_detail(graph, node_id)
-    
-    if detail:
-        return {
-            "id": detail.node.id,
-            "label": detail.node.label,
-            "type": detail.node.type,
-            "incoming": len(detail.incoming),
-            "outgoing": len(detail.outgoing),
-        }
-    return None
+def step_3_filter_by_type(graph: dict, node_type: str = "entity") -> list:
+    """Step 3: 按 type 过滤。"""
+    nodes = [n for n in graph.get("nodes", []) if n.get("type") == node_type]
+    print(f"[scenario:{SCENARIO_NAME}] step_3_filter_by_type('{node_type}'): {len(nodes)} matches")
+    return nodes
 
 
-def step_4_extract_summary(graph, user_results, first_user_detail) -> dict:
-    """Step 4: 摘要输出。"""
+def step_4_extract_summary(graph: dict, search_results: list, by_type: list) -> dict:
+    """Step 4: 摘要。"""
     summary = {
-        "total_nodes": len(graph.nodes),
-        "total_edges": len(graph.edges),
-        "user_search_matches": len(user_results),
-        "first_user_detail": first_user_detail,
+        "total_nodes": len(graph.get("nodes", [])),
+        "total_edges": len(graph.get("edges", [])),
+        "search_keyword": "user",
+        "search_matches": len(search_results),
+        "top_search_match": (
+            {"id": search_results[0]["id"], "label": search_results[0]["label"]}
+            if search_results else None
+        ),
+        "entity_count": len(by_type),
+        "operator_count": sum(
+            1 for n in graph.get("nodes", []) if n.get("type") == "operator"
+        ),
     }
     print(f"[scenario:{SCENARIO_NAME}] step_4_extract_summary: {summary}")
     return summary
 
 
 def query_ontology() -> dict:
-    """完整查询流程（4 个 step）。"""
-    _setup_paths()
-    
-    print(f"[scenario:{SCENARIO_NAME}] === Step 1: load graph ===")
-    loaded = step_1_load_graph()
-    graph = loaded["graph"]
-    
-    print(f"[scenario:{SCENARIO_NAME}] === Step 2: search users ===")
-    user_results = step_2_search_users(graph)
-    
-    detail = None
-    if user_results:
-        first_id = user_results[0].id
-        print(f"[scenario:{SCENARIO_NAME}] === Step 3: get detail for {first_id} ===")
-        detail = step_3_get_node_detail(graph, first_id)
-    
-    print(f"[scenario:{SCENARIO_NAME}] === Step 4: extract summary ===")
-    summary = step_4_extract_summary(graph, user_results, detail)
-    
+    """完整查询流程。"""
+    graph = step_1_load_graph()
+    search_results = step_2_search_nodes(graph, keyword="user")
+    entities = step_3_filter_by_type(graph, node_type="entity")
+    summary = step_4_extract_summary(graph, search_results, entities)
     return summary
 
 
 def main() -> dict:
     print(f"[scenario:{SCENARIO_NAME}] starting")
     print(f"[scenario:{SCENARIO_NAME}] workspace={WORKSPACE}")
+    print(f"[scenario:{SCENARIO_NAME}] ontology_json={ONTOLOGY_JSON}")
     
     summary = query_ontology()
     
     print(f"[scenario:{SCENARIO_NAME}] === Summary ===")
-    print(f"[scenario:{SCENARIO_NAME}] {summary}")
+    print(f"[scenario:{SCENARIO_NAME}] total_nodes: {summary['total_nodes']}")
+    print(f"[scenario:{SCENARIO_NAME}] total_edges: {summary['total_edges']}")
+    print(f"[scenario:{SCENARIO_NAME}] user matches: {summary['search_matches']}")
+    print(f"[scenario:{SCENARIO_NAME}] top match: {summary['top_search_match']}")
+    print(f"[scenario:{SCENARIO_NAME}] entities: {summary['entity_count']}")
+    print(f"[scenario:{SCENARIO_NAME}] operators: {summary['operator_count']}")
     print(f"[scenario:{SCENARIO_NAME}] OK")
     
     return summary

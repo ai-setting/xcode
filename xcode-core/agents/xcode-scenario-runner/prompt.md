@@ -137,32 +137,61 @@ xcode serve             # serves http://localhost:7800
 
 ---
 
-## Examples（必看！）
+## ⚠️ Critical: xcode trace mechanism (independent of target project)
 
-在构建 scenario 前，**先看对应语言的示例**：
+**xcode 用 Python 内置的 `sys.settrace`（不是依赖目标项目的 trace 系统）**。
 
-- **Python**: `xcode-core/examples/python/`
-  - `simple_function.py` - 基础函数 trace
-  - `class_methods.py` - 类方法 + 调用方位置
-  - `async_function.py` - async/await
-  - `multi_file_call.py` - 跨文件调用链（配合 module_a.py / module_b.py）
+- **Python scenarios**: `sys.settrace` (Python 内置)
+- **TypeScript scenarios**: V8 Inspector Protocol + Node.js `--require` preload
+- **Go scenarios**: `dlv trace` (Delve debugger)
+- **Rust scenarios**: `tracing` crate 或 `cargo-flamegraph`
 
-- **TypeScript**: `xcode-core/examples/typescript/`
-  - `simple_function.ts` - 基础函数
-  - `monkey_patch_demo.ts` - 模拟 monkey patch
-  - `inspector_demo.ts` - V8 Inspector
+**每个语言用自己的 trace 系统。xcode 不会依赖目标项目的 trace 装饰器**（如 `@TracedAs` / `tongagents.logtrace`）。
 
-- **Go**: `xcode-core/examples/go/`
-  - `simple_function.go` - 基础函数
-  - `class_methods.go` - 结构体方法
-  - `dlv_trace_demo.go` - Delve trace
+### Scenario 编写铁律
 
-- **Rust**: `xcode-core/examples/rust/src/`
-  - `simple_function.rs` - 基础函数
-  - `class_methods.rs` - 结构体 impl
-  - `tracing_demo.rs` - tracing crate + `#[instrument]`
+1. **只 import 标准库**（如 `os`, `re`, `json`, `pathlib`, `subprocess`）
+2. **不要 import 目标项目的内部 trace 模块**（如 `tongagents.logtrace`）
+3. **不要 import 目标项目的 Cython/编译模块**（trace 不到内部）
+4. **如果需要调用目标项目的 API**，**只 import 公开的纯 Python 函数**——不能 import 用 `@TracedAs` 装饰的内部函数
+5. **Scenario 脚本 = 完整的、可独立运行的 Python 脚本**（xcode trace runner 用 sys.settrace 自动 trace 所有函数）
 
-**重要**：构建 scenario 时，参考对应语言的示例风格：
-- 入口简单（`main` / `if __name__ == '__main__'`）
-- 不修改目标项目代码（无侵入）
-- 只调用，不重写
+### 示例：好的 vs 坏的 scenario
+
+✅ **好的 scenario**（纯 Python + 标准库）：
+```python
+import os, re, json
+from pathlib import Path
+
+def extract_ontology():
+    files = list(Path('/path/to/model').rglob('*.md'))
+    nodes = []
+    for f in files:
+        content = f.read_text()
+        # 用 re 解析 frontmatter
+        m = re.search(r'^id:\s*(\w+)', content, re.M)
+        if m:
+            nodes.append({'id': m.group(1), 'file': str(f)})
+    return nodes
+
+if __name__ == '__main__':
+    print(extract_ontology())
+```
+
+❌ **坏的 scenario**（依赖目标项目 trace / Cython）：
+```python
+# 不要这样做！
+sys.path.insert(0, '/path/to/target_project')
+from tongagents.logtrace import TracedAs  # Cython 编译，trace 不到
+from target_project.tracing import tracer    # 依赖目标项目 trace
+```
+
+### xcode trace runner 自动做什么
+
+当你跑 `xcode trace <scenario.py>` 时：
+1. 自动加 `sys.settrace(XCodeTracer())`
+2. 跑 scenario 脚本（`runpy.run_path`）
+3. 所有 Python 函数调用都会出现在 trace tree 里
+4. 完成后 `sys.settrace(None)` 并保存 JSON
+
+**不需要 scenario 自己写 trace 代码**——xcode 已经处理了。
