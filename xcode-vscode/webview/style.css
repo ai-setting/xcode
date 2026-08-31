@@ -195,6 +195,44 @@ body {
   color: var(--vscode-errorForeground);
 }
 
+.msg.agent pre.xc-agent-reply {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.msg.agent .xc-agent-meta {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+.msg.agent .xc-agent-actions {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.msg.agent .xc-action-btn {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.msg.agent .xc-action-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
 .xc-agent-input {
   padding: 8px 0;
   border-top: 1px solid var(--vscode-editorWidget-border);

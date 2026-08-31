@@ -304,23 +304,121 @@ async function sendAgentMessage() {
   if (!text) return;
 
   const messages = document.getElementById('xc-messages');
+  const status = document.getElementById('xc-status');
+
   messages.appendChild(msgEl('user', text));
   input.value = '';
   messages.scrollTop = messages.scrollHeight;
 
+  // 显示 "typing..." 占位
+  const placeholderId = 'agent-placeholder-' + Date.now();
+  const placeholder = msgEl('agent', '⏳ Calling xcode-scenario-runner sub-agent (may take up to 5 min)...');
+  placeholder.id = placeholderId;
+  messages.appendChild(placeholder);
+  messages.scrollTop = messages.scrollHeight;
+  if (status) status.textContent = 'Agent thinking...';
+
   const r = await fetchWithDetails(`${SERVER_URL}/api/agent/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: text }),
+    body: JSON.stringify({ message: text, timeout: 300 }),
   });
+
+  // 移除 placeholder
+  const ph = document.getElementById(placeholderId);
+  if (ph) ph.remove();
 
   if (r.error || !r.ok) {
     messages.appendChild(msgEl('error', `Failed: ${r.errorMessage || r.statusText}`));
+    if (status) status.textContent = `Agent failed: ${r.status || ''}`;
   } else {
     const resp = r.data?.response || '(empty response)';
-    messages.appendChild(msgEl('agent', resp));
+    const actions = r.data?.actions || [];
+    const subagent = r.data?.subagent || 'agent';
+    const exit = r.data?.subagent_exit;
+
+    // 渲染 agent 回复 + 可选 action 按钮
+    const div = document.createElement('div');
+    div.className = 'msg agent';
+    // 把 markdown-ish text 转成 <pre> 保留换行
+    const pre = document.createElement('pre');
+    pre.className = 'xc-agent-reply';
+    pre.textContent = resp;
+    div.appendChild(pre);
+
+    // header: which sub-agent + exit code
+    if (subagent || exit !== undefined) {
+      const meta = document.createElement('div');
+      meta.className = 'xc-agent-meta';
+      const exitOk = exit === 0 ? '✅' : (exit === undefined ? '🔵' : '⚠️');
+      meta.textContent = `${exitOk} sub-agent: ${subagent}${exit !== undefined ? ` (exit=${exit})` : ''}`;
+      div.appendChild(meta);
+    }
+
+    // action 按钮（如果有）
+    if (actions.length > 0) {
+      const actionsBar = document.createElement('div');
+      actionsBar.className = 'xc-agent-actions';
+      actions.forEach((a) => {
+        const btn = document.createElement('button');
+        btn.className = 'xc-jump-btn xc-action-btn';
+        btn.dataset.action = a.type;
+        btn.textContent = a.label || a.type;
+        btn.addEventListener('click', () => handleAgentAction(a.type));
+        actionsBar.appendChild(btn);
+      });
+      div.appendChild(actionsBar);
+    }
+
+    messages.appendChild(div);
+    if (status) status.textContent = `Agent done (exit=${exit ?? 'n/a'})`;
   }
   messages.scrollTop = messages.scrollHeight;
+}
+
+async function handleAgentAction(action) {
+  // agent 回复中提到的 actions：把对应的命令塞回输入框，让用户点 send 执行。
+  // 或者更激进：直接 fetch /api/scenarios/{name}/{action}
+  const status = document.getElementById('xc-status');
+  const input = document.getElementById('xc-input');
+
+  // 如果 action 有具体 target（run-scenario / show-trace），从最近一次 agent 回复解析 scenario 名字
+  const lastReply = document.querySelector('.xc-agent-reply');
+  const scenarioName = lastReply ? extractScenarioName(lastReply.textContent || '') : '';
+
+  if (action === 'gen-scenario') {
+    if (input) {
+      input.value = 'generate a scenario for the latest trace target';
+      input.focus();
+      if (status) status.textContent = 'Edit prompt and press Enter';
+    }
+    return;
+  }
+
+  if (action === 'run-scenario' && scenarioName) {
+    if (status) status.textContent = `Running scenario ${scenarioName}...`;
+    if (window.runScenario) await window.runScenario(scenarioName);
+    return;
+  }
+
+  if (action === 'show-trace' && scenarioName) {
+    if (status) status.textContent = `Showing trace ${scenarioName}...`;
+    if (window.showTrace) await window.showTrace(scenarioName);
+    return;
+  }
+
+  // fallback：塞回输入框
+  if (input) {
+    input.value = `${action} ${scenarioName}`.trim();
+    input.focus();
+    if (status) status.textContent = 'Edit prompt and press Enter';
+  }
+}
+
+function extractScenarioName(text) {
+  // 优先匹配 backtick 包裹的 scenario 名字
+  const m = text.match(/`([a-z0-9_\-]+)`/i);
+  return m ? m[1] : '';
 }
 
 function msgEl(kind, text) {

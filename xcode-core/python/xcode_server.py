@@ -183,20 +183,143 @@ class XcodeHandler(BaseHTTPRequestHandler):
             return self._send_json({'error': f'Failed to read trace: {e}'}, status=500)
 
     def _agent_chat(self, body: dict):
+        """真正调用 roy-agent xcode-scenario-runner sub-agent。
+
+        通过 subprocess 调 `roy-agent act -a xcode-scenario-runner <message>`，
+        解析 stdout/stderr，提取 actions（gen-scenario / run-scenario / show-trace）。
+        """
         message = body.get('message', '').strip()
         if not message:
             return self._send_json({'error': 'Empty message'}, status=400)
+
+        # 5 分钟超时。sub-agent 可能要 gen-scenario + run-scenario + react-fix loop
+        timeout_sec = int(body.get('timeout', 300))
+
+        # 自动追加 cwd hint（让 agent 知道在 xcode 项目目录跑）
+        cwd = body.get('cwd') or str(SERVER_DIR.parent.parent)  # /home/.../xcode
+        # 在 prompt 里告诉 agent 工作目录
+        enriched_message = (
+            f"{message}\n\n"
+            f"[Context] cwd={cwd} (use this as the target git repo for xcode CLI)\n"
+            f"[Context] Xcode backend already serving at http://localhost:7800\n"
+            f"[Context] Scenarios dir: {SCENARIOS_DIR}\n"
+            f"[Context] Traces dir: {TRACES_DIR}\n"
+            f"[Context] If you want to add/trace scenarios in this workspace, "
+            f"cd into it and use `xcode init` / `xcode gen-scenario` / `xcode run-scenario` / `xcode show-trace`."
+        )
+
+        try:
+            result = subprocess.run(
+                [
+                    'roy-agent', 'act',
+                    '-a', 'xcode-scenario-runner',
+                    enriched_message,
+                    '--no-reasoning',
+                    '--no-tool-calls',
+                    '--quiet',
+                ],
+                capture_output=True,
+                text=True,
+                timeout=timeout_sec,
+                cwd=cwd,
+                env={**os.environ, 'NO_COLOR': '1'},  # strip ANSI colors
+            )
+        except subprocess.TimeoutExpired:
+            return self._send_json({
+                'response': (
+                    f'⏱ Sub-agent timed out after {timeout_sec}s. '
+                    f'Try a simpler request or break it into steps.'
+                ),
+                'subagent': 'xcode-scenario-runner',
+                'actions': [],
+            }, status=504)
+        except FileNotFoundError:
+            return self._send_json({
+                'response': (
+                    '❌ `roy-agent` CLI not found in PATH. '
+                    'Install it or set PATH to include the roy-agent binary.'
+                ),
+                'subagent': 'xcode-scenario-runner',
+                'actions': [],
+            }, status=500)
+        except Exception as e:
+            return self._send_json({
+                'response': f'❌ Sub-agent error: {e}',
+                'subagent': 'xcode-scenario-runner',
+                'actions': [],
+            }, status=500)
+
+        # 解析输出
+        stdout = (result.stdout or '').strip()
+        stderr = (result.stderr or '').strip()
+
+        # 提取最后一段干净文本（去掉 ANSI 控制字符 + 空行）
+        clean_stdout = self._strip_ansi(stdout)
+        clean_stderr = self._strip_ansi(stderr)
+
+        # 如果 stdout 看起来是结构化（包含 reasoning/tool-calls），提取 ## Result 之后的部分
+        response_text = self._extract_agent_reply(clean_stdout)
+
+        if result.returncode != 0 and not response_text:
+            response_text = f'[sub-agent exit={result.returncode}]\n{clean_stderr or clean_stdout or "(no output)"}'
+
+        if not response_text:
+            response_text = '(sub-agent produced no response)'
+
+        # 截断太长输出
+        if len(response_text) > 30000:
+            response_text = response_text[:30000] + '\n\n... (truncated, see server log for full output)'
+
+        actions = self._extract_actions(clean_stdout + '\n' + clean_stderr)
+
         return self._send_json({
-            'response': (
-                f'Received: "{message[:200]}".\n\n'
-                'Suggested steps:\n'
-                '1) Describe the function you want to test (e.g. "test ontology build + reason").\n'
-                '2) Click "Run" next to a scenario in the sidebar.\n'
-                '3) View the trace tree — every span shows where the function is defined AND where it was called from.\n'
-                '4) Click ↓def or ↑call to jump to the source location.'
-            ),
-            'actions': [],
+            'response': response_text,
+            'subagent': 'xcode-scenario-runner',
+            'subagent_exit': result.returncode,
+            'actions': actions,
+            'stderr_tail': clean_stderr[-500:] if clean_stderr else '',
         })
+
+    def _strip_ansi(self, text: str) -> str:
+        """去掉 ANSI 控制字符（颜色码等）"""
+        import re
+        if not text:
+            return ''
+        ansi_re = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
+        return ansi_re.sub('', text)
+
+    def _extract_agent_reply(self, text: str) -> str:
+        """从 sub-agent stdout 提取干净回复。
+
+        roy-agent act 输出格式大致是：
+          <reasoning>...
+          ## Result
+          <final answer>
+          ## Next steps
+          ...
+        """
+        if not text:
+            return ''
+        # 优先提取 ## Result 之后到下一个 ## 之前的部分
+        import re
+        m = re.search(r'##\s*Result\s*\n+(.*?)(?=\n##\s|\Z)', text, re.DOTALL | re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+        # 否则返回整个文本（去掉 leading 空白）
+        return text.strip()
+
+    def _extract_actions(self, text: str) -> list:
+        """从 sub-agent 回复中提取 action 提示（gen-scenario / run-scenario / show-trace）。"""
+        actions = []
+        lower = text.lower()
+        # 如果 agent 提到了具体 scenario 名字和命令，提取它们
+        if 'gen-scenario' in lower or 'generate scenario' in lower:
+            actions.append({'type': 'gen-scenario', 'label': '🔧 Generate Scenario'})
+        if 'run-scenario' in lower or 'run scenario' in lower or 'react-fix' in lower:
+            actions.append({'type': 'run-scenario', 'label': '▶ Run Scenario'})
+        if 'show-trace' in lower or 'show trace' in lower or 'trace tree' in lower:
+            actions.append({'type': 'show-trace', 'label': '🌳 Show Trace Tree'})
+        return actions
 
 
 def main():
