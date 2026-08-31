@@ -151,6 +151,27 @@ class XcodeTracer:
         except Exception:
             return '<unserializable>'
 
+    def _unwrap_frame(self, frame):
+        """跳过 functools.wraps wrapper，找到真实调用点。
+        
+        tongagents.logtrace 用 @functools.wraps(fn) 包装函数（sync_wrapper / async_wrapper）。
+        当用户调用被装饰的函数时，Python frame 链是：
+            caller_code → sync_wrapper → wrapped_fn
+        
+        但 caller 在 sync_wrapper 里面调用 fn，frame.f_back 是 sync_wrapper 的 caller
+        （也是 wrapper 内部），所以会跳到 wrapper 里面。
+        
+        这个 helper 检查 wrapper 名字，跳到 caller 的 caller。
+        """
+        co = frame.f_code
+        if co.co_name in ('sync_wrapper', 'async_wrapper'):
+            if frame.f_back:
+                # 递归：检查上一级是不是 wrapper
+                if frame.f_back.f_code.co_name in ('sync_wrapper', 'async_wrapper'):
+                    return self._unwrap_frame(frame.f_back)
+                return frame.f_back
+        return frame
+    
     def _get_qualname(self, frame):
         co = frame.f_code
         # 默认用 co_qualname（如 OntologyNode.__init__，包含完整限定名）
@@ -193,12 +214,13 @@ class XcodeTracer:
             # 调用方信息（从 frame.f_back 拿）— 用绝对路径
             caller_info = None
             if frame.f_back:
-                caller_co = frame.f_back.f_code
+                back_frame = self._unwrap_frame(frame.f_back)
+                caller_co = back_frame.f_code
                 caller_info = {
                     'caller_id': self.call_stack[-1] if self.call_stack else None,
                     'caller_file': os.path.abspath(caller_co.co_filename),
-                    'caller_line': frame.f_back.f_lineno,
-                    'caller_func': self._get_qualname(frame.f_back),
+                    'caller_line': back_frame.f_lineno,
+                    'caller_func': self._get_qualname(back_frame),
                 }
 
             entry = {
