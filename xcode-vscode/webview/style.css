@@ -402,3 +402,57 @@ body {
   font-family: var(--vscode-editor-font-family);
   font-size: 11px;
 }
+
+/* === Trace tree collapse/expand === */
+/* 每个深度增加缩进（24px per level）*/
+.trace-node[data-depth="0"] > .trace-header { padding-left: 0; }
+.trace-node[data-depth="1"] > .trace-header { padding-left: 12px; }
+.trace-node[data-depth="2"] > .trace-header { padding-left: 24px; }
+.trace-node[data-depth="3"] > .trace-header { padding-left: 36px; }
+.trace-node[data-depth="4"] > .trace-header { padding-left: 48px; }
+.trace-node[data-depth="5"] > .trace-header { padding-left: 60px; }
+.trace-node[data-depth="6"] > .trace-header { padding-left: 72px; }
+.trace-node[data-depth="7"] > .trace-header { padding-left: 84px; }
+.trace-node[data-depth="8"] > .trace-header { padding-left: 96px; }
+
+.xc-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0;
+  margin-right: 2px;
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 3px;
+  font-size: 10px;
+  font-family: var(--vscode-editor-font-family);
+  cursor: pointer;
+  user-select: none;
+  vertical-align: middle;
+}
+
+.xc-collapse-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+  border-color: var(--vscode-focusBorder);
+}
+
+.xc-collapse-btn[data-collapsed="1"] {
+  color: var(--vscode-descriptionForeground, #999);
+}
+
+.xc-collapse-spacer {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+
+/* 被折叠隐藏的子节点 */
+.trace-node.xc-collapsed-hidden {
+  display: none !important;
+}

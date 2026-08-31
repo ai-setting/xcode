@@ -170,7 +170,9 @@ window.showTrace = async function(name) {
   bindTraceButtons();
 };
 
-// === Trace tree ===
+// 全局 trace 节点索引（按 id），供 toggleTraceChildren 使用
+let traceNodeById = {};
+
 function renderTraceTree(entries, summary) {
   if (!entries.length) {
     return '<div class="error">Empty trace</div>';
@@ -181,9 +183,10 @@ function renderTraceTree(entries, summary) {
   const nodes = [];
   for (const e of entries) {
     if (e.type === 'call') {
+      const depth = e.depth || 0;
       callById.set(e.id, {
         id: e.id,
-        depth: e.depth || 0,
+        depth,
         qualname: e.qualname || e.func || '?',
         file: e.file || '',
         line: e.line || 0,
@@ -192,6 +195,9 @@ function renderTraceTree(entries, summary) {
         args: e.args || {},
         result: null,
         ts: e.timestamp || 0,
+        children: [],
+        // 默认折叠策略：depth > 1 默认折叠
+        _collapsed: depth > 1,
       });
     } else if (e.type === 'return') {
       const node = callById.get(e.id);
@@ -208,8 +214,21 @@ function renderTraceTree(entries, summary) {
     }
   }
 
+  // 构造嵌套 tree：用 caller.caller_id 关联父子
   const arr = Array.from(callById.values()).sort((a, b) => a.ts - b.ts);
-  const html = arr.map(renderTraceNode).join('');
+  const roots = [];
+  // 索引：便于后续根据 id 找节点
+  traceNodeById = {};
+  arr.forEach(n => { traceNodeById[n.id] = n; });
+  for (const n of arr) {
+    const callerId = n.caller && n.caller.caller_id;
+    if (callerId != null && callById.has(callerId)) {
+      callById.get(callerId).children.push(n);
+    } else {
+      roots.push(n);
+    }
+  }
+  const html = roots.map(r => renderTraceNode(r, 0, [])).join('');
   const summaryHtml = summary ? renderSummary(summary) : '';
   return summaryHtml + html;
 }
@@ -220,11 +239,13 @@ function renderSummary(s) {
   </div>`;
 }
 
-function renderTraceNode(n) {
-  const indent = n.depth * 24;
+function renderTraceNode(n, depth, ancestors) {
   const loc = `${basename(n.file)}:${n.line}`;
-  // Tree connector（│ 树形连接符）
-  const treePrefix = n.depth > 0 ? '<span class="trace-tree-prefix">' + '│ '.repeat(n.depth) + '└─</span> ' : '';
+  // 折叠按钮：只有有子节点的节点才显示 ▼/▶
+  const hasChildren = n.children && n.children.length > 0;
+  const collapseBtn = hasChildren
+    ? `<button class="xc-collapse-btn" data-node-id="${n.id}" data-collapsed="${n._collapsed ? '1' : '0'}" title="${n._collapsed ? 'Expand children' : 'Collapse children'}">${n._collapsed ? '▶' : '▼'}</button>`
+    : `<span class="xc-collapse-spacer"></span>`;
   // Caller 信息
   const caller = n.caller && n.caller.caller_func
     ? `<span class="trace-caller">from ${escapeHtml(basename(n.caller.caller_file || '?'))}:${n.caller.caller_line || 0}</span>`
@@ -244,7 +265,7 @@ function renderTraceNode(n) {
               ↑ call
             </button>`
     : '';
-  
+
   // 详情块
   const argsJson = JSON.stringify(n.args || {}, null, 2);
   const argsBlock = Object.keys(n.args || {}).length
@@ -256,7 +277,7 @@ function renderTraceNode(n) {
   const excBlock = n.exception
     ? `<pre class="xc-detail">exception: ${escapeHtml(n.exception)}</pre>`
     : '';
-  
+
   // 状态图标
   let statusIcon = '●';
   let statusClass = 'trace-ok';
@@ -264,11 +285,15 @@ function renderTraceNode(n) {
     statusIcon = '✗';
     statusClass = 'trace-err';
   }
-  
-  return `
-    <div class="trace-node ${statusClass}" data-depth="${n.depth}">
-      <div class="trace-header" style="padding-left: ${indent}px;">
-        ${treePrefix}<span class="trace-status">${statusIcon}</span>
+
+  // ancestors：祖先节点 id 列表（用于 CSS 折叠子节点）
+  const ancestorsAttr = ancestors.length ? ` data-ancestors="${ancestors.join(',')}"` : '';
+
+  let html = `
+    <div class="trace-node ${statusClass}" data-depth="${depth}" data-node-id="${n.id}"${ancestorsAttr}>
+      <div class="trace-header">
+        ${collapseBtn}
+        <span class="trace-status">${statusIcon}</span>
         <span class="trace-func">${escapeHtml(n.qualname)}</span>
         <span class="trace-loc">${escapeHtml(loc)}</span>
         ${caller}
@@ -284,6 +309,17 @@ function renderTraceNode(n) {
       ${excBlock}
     </div>
   `;
+
+  // 如果当前节点 _collapsed，不渲染子节点（子节点不输出到 DOM）
+  // 子节点可以稍后通过 toggleTraceChildren 触发渲染
+  if (hasChildren && !n._collapsed) {
+    const childAncestors = [...ancestors, n.id];
+    for (const child of n.children) {
+      html += renderTraceNode(child, depth + 1, childAncestors);
+    }
+  }
+
+  return html;
 }
 
 function bindTraceButtons() {
@@ -305,6 +341,59 @@ function bindTraceButtons() {
       if (target) target.classList.toggle('hidden');
     });
   });
+  // 折叠/展开按钮：用 data-collapsed 属性保存状态
+  document.querySelectorAll('.xc-collapse-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const nodeId = e.currentTarget.dataset.nodeId;
+      toggleTraceChildren(nodeId);
+    });
+  });
+}
+
+/**
+ * 切换节点的折叠状态。
+ * 实现：修改数据的 _collapsed 字段，然后重新渲染该子树。
+ * 这样设计的好处：DOM 只有真正可见的部分，避免大量隐藏节点堆积。
+ */
+function toggleTraceChildren(nodeId) {
+  // 找到当前节点的 data
+  const node = traceNodeById[parseInt(nodeId, 10)] || traceNodeById[String(nodeId)];
+  if (!node) {
+    console.warn('[xcode] toggleTraceChildren: node not found:', nodeId);
+    return;
+  }
+  // 翻转状态
+  node._collapsed = !node._collapsed;
+  // 找到该节点对应的 DOM 元素，重新渲染子树 HTML 并替换
+  const currentNodeEl = document.querySelector(`.trace-node[data-node-id="${nodeId}"]`);
+  if (!currentNodeEl) return;
+  // 计算当前节点的 depth 和 ancestors（从 DOM 属性读）
+  const depth = parseInt(currentNodeEl.dataset.depth || '0', 10);
+  const ancestorsStr = currentNodeEl.dataset.ancestors || '';
+  const ancestors = ancestorsStr ? ancestorsStr.split(',').filter(Boolean).map(s => parseInt(s, 10)) : [];
+  // 重新渲染这个节点的 HTML（包括其 children）
+  const newHtml = renderTraceNode(node, depth, ancestors);
+  // 用临时 div 解析新 HTML
+  const tmp = document.createElement('div');
+  tmp.innerHTML = newHtml;
+  // 替换：移除 currentNodeEl 之后的所有同级元素到下一个同级 trace-node 之前，
+  // 然后把 tmp 里除第一个元素（currentNodeEl 的新版本）外的部分插入
+  const newNodeEl = tmp.firstElementChild;
+  const parent = currentNodeEl.parentNode;
+  // 把 currentNodeEl 替换成 newNodeEl
+  parent.replaceChild(newNodeEl, currentNodeEl);
+  // 插入 newNodeEl 后面的部分（即渲染出来的子节点）
+  while (newNodeEl.nextSibling) {
+    parent.removeChild(newNodeEl.nextSibling);
+  }
+  let cursor = newNodeEl.nextSibling;
+  const fragments = Array.from(tmp.children).slice(1);
+  for (const frag of fragments) {
+    parent.insertBefore(frag, cursor);
+    cursor = frag.nextSibling;
+  }
+  // 更新按钮状态 + 重新绑定所有按钮事件
+  bindTraceButtons();
 }
 
 // === Refresh ===
