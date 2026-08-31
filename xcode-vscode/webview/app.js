@@ -22,8 +22,14 @@ if (init.cspTokens) document.getElementById('debug-tokens').textContent = init.c
 
 // === fetchWithDetails ===
 async function fetchWithDetails(url, options = {}) {
+  // 支持超时（避免长时间挂起）
+  const timeoutMs = options.timeout || 600000;  // 默认 10 分钟
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
   try {
-    const response = await fetch(url, options);
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
     const ct = response.headers.get('content-type') || '';
     let data = null;
     if (ct.includes('json')) {
@@ -39,14 +45,19 @@ async function fetchWithDetails(url, options = {}) {
       data,
     };
   } catch (e) {
+    clearTimeout(timeoutId);
     let hint = 'Check network / server URL';
-    if (e.message && e.message.includes('Failed to fetch')) {
+    let errorKind = 'network';
+    if (e.name === 'AbortError') {
+      errorKind = 'timeout';
+      hint = `Request exceeded ${timeoutMs}ms timeout. Try a simpler request.`;
+    } else if (e.message && e.message.includes('Failed to fetch')) {
       hint = `Cannot reach backend at ${SERVER_URL}. Verify the Python server is running and CORS allows this origin.`;
     }
     return {
       ok: false,
       error: true,
-      errorKind: 'network',
+      errorKind: errorKind,
       errorMessage: e.message || String(e),
       url,
       hint,
@@ -321,7 +332,9 @@ async function sendAgentMessage() {
   const r = await fetchWithDetails(`${SERVER_URL}/api/agent/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: text, timeout: 300 }),
+    body: JSON.stringify({ message: text, timeout: 600 }),
+  }, {
+    timeout: 600000,  // 浏览器侧 10 分钟超时
   });
 
   // 移除 placeholder
@@ -329,7 +342,18 @@ async function sendAgentMessage() {
   if (ph) ph.remove();
 
   if (r.error || !r.ok) {
-    messages.appendChild(msgEl('error', `Failed: ${r.errorMessage || r.statusText}`));
+    // 显示后端返回的错误信息（如果有）+ 状态码
+    let errMsg = r.errorMessage || r.statusText || '?';
+    if (r.data && r.data.response) {
+      errMsg = r.data.response;
+    } else if (r.data && r.data.error) {
+      errMsg = r.data.error;
+    }
+    const kindLabel = {
+      'timeout': '⏱ 超时',
+      'network': '🌐 网络',
+    }[r.errorKind] || '❌';
+    messages.appendChild(msgEl('error', `${kindLabel} [${r.status || '?'}] ${errMsg}`));
     if (status) status.textContent = `Agent failed: ${r.status || ''}`;
   } else {
     const resp = r.data?.response || '(empty response)';
