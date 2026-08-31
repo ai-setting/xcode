@@ -31,9 +31,12 @@ from pathlib import Path
 WORKSPACE = "/home/dzk/work/codework/personal/roy_world/xcode"
 SCENARIO_NAME = "ontology_query_reasoning"
 
-# ontology.json 由 ontology_extraction.py 生成
+# ontology.json 由 ontology_extraction.py 生成（自动定位）
+SCENARIO_FILE = os.path.abspath(__file__)
+SCENARIOS_DIR = os.path.dirname(SCENARIO_FILE)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(SCENARIOS_DIR))
 ONTOLOGY_JSON = os.path.join(
-    WORKSPACE, ".xcode", "traces", "ontology_extraction", "ontology.json"
+    PROJECT_ROOT, ".xcode", "traces", "ontology_extraction", "ontology.json"
 )
 
 

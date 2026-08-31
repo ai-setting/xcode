@@ -34,11 +34,17 @@ from typing import Any
 WORKSPACE = "/home/dzk/work/codework/personal/roy_world/xcode"
 SCENARIO_NAME = "ontology_extraction"
 
-# tong-ontology 模型目录（只读 markdown）
-TONG_ONTOLOGY_ROOT = "/home/dzk/work/codework/tong_agents/tong-ontology"
+# tong-ontology 模型目录（自动定位）
+# scenarios 应该在被解读的项目下：
+# <project_root>/.xcode/scenarios/<name>.py
+# 所以 project_root = scenarios/<name>.py 的父目录的父目录
+SCENARIO_FILE = os.path.abspath(__file__)
+SCENARIOS_DIR = os.path.dirname(SCENARIO_FILE)  # .../project/.xcode/scenarios/
+PROJECT_ROOT = os.path.dirname(os.path.dirname(SCENARIOS_DIR))  # .../project/
+TONG_ONTOLOGY_ROOT = PROJECT_ROOT
 MODEL_DIR = os.path.join(TONG_ONTOLOGY_ROOT, "model")
 DOMAINS_DIR = os.path.join(TONG_ONTOLOGY_ROOT, "domains")
-OUTPUT_DIR = os.path.join(WORKSPACE, ".xcode", "traces", "ontology_extraction")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, ".xcode", "traces", "ontology_extraction")
 
 
 def parse_frontmatter(content: str) -> dict:
