@@ -35,9 +35,24 @@ Your deliverables:
 
 ## Input
 
-You receive **one** positional argument: the absolute path to the
-target git repo (passed as `<path>` below), plus an optional
-`--description` describing the function/feature line to trace.
+You receive a **message** that includes:
+- The user's natural language request (e.g. "trace the user authentication flow")
+- An absolute path to the target git repo (under `[Context] cwd=...` line, or extractable from the message)
+- Optional `--description` (function/feature line to trace)
+
+**How to parse the input**:
+1. Look for a `[Context] cwd=<path>` line in the message — this is the **target repo** (provided by the plugin from the user's vscode workspace).
+2. The user's request is the rest of the message (after stripping `[Context]...` lines).
+3. If no `[Context] cwd=...` is present, look for an absolute path in the user's message (e.g. `/home/user/myproject`).
+4. If neither, ask the user (via the agent chat reply).
+
+Once you have the path, treat it as `<path>` below.
+
+---
+
+## Output
+
+You produce a short text reply (1-2 paragraphs + bullet list) describing what you did.
 
 ---
 

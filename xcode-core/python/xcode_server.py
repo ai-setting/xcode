@@ -244,16 +244,25 @@ class XcodeHandler(BaseHTTPRequestHandler):
         timeout_sec = int(body.get('timeout', 300))
 
         # 自动追加 cwd hint（让 agent 知道在 xcode 项目目录跑）
-        cwd = body.get('cwd') or str(SERVER_DIR.parent.parent)  # /home/.../xcode
+        workspace_from_body = body.get('cwd', '').strip()
+        scenarios_parent = str(SCENARIOS_DIR.parent)  # <workspace>/.xcode
+        if workspace_from_body:
+            cwd = workspace_from_body
+            workspace_hint = f"{workspace_from_body} (current vscode workspace, target for xcode CLI)"
+        else:
+            cwd = scenarios_parent
+            workspace_hint = f"{scenarios_parent} (inferred from SCENARIOS_DIR, target for xcode CLI)"
+
         # 在 prompt 里告诉 agent 工作目录
         enriched_message = (
             f"{message}\n\n"
-            f"[Context] cwd={cwd} (use this as the target git repo for xcode CLI)\n"
-            f"[Context] Xcode backend already serving at http://localhost:7800\n"
+            f"[Context] Target workspace: {workspace_hint}\n"
+            f"[Context] cwd={cwd} (use this for xcode CLI commands)\n"
             f"[Context] Scenarios dir: {SCENARIOS_DIR}\n"
             f"[Context] Traces dir: {TRACES_DIR}\n"
-            f"[Context] If you want to add/trace scenarios in this workspace, "
-            f"cd into it and use `xcode init` / `xcode gen-scenario` / `xcode run-scenario` / `xcode show-trace`."
+            f"[Context] Xcode backend already serving at http://localhost:7800\n"
+            f"[Context] Run `xcode gen-scenario --workspace {cwd}` so scenarios land in {SCENARIOS_DIR}.\n"
+            f"[Context] NEVER write scenarios into the xcode plugin own folder."
         )
 
         try:

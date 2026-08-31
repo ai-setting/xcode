@@ -335,10 +335,13 @@ async function sendAgentMessage() {
   messages.scrollTop = messages.scrollHeight;
   if (status) status.textContent = 'Agent thinking...';
 
+  // 获取 vscode 当前打开的 workspace 根
+  const cwd = vscode ? (vscode.workspaceRoot || '') : '';
+
   const r = await fetchWithDetails(`${SERVER_URL}/api/agent/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: text, timeout: 600 }),
+    body: JSON.stringify({ message: text, timeout: 600, cwd }),
   }, {
     timeout: 600000,  // 浏览器侧 10 分钟超时
   });
