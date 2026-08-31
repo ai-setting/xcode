@@ -21,9 +21,14 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
-TRACES_DIR = Path('/tmp/xcode_traces')
-TRACES_DIR.mkdir(exist_ok=True)
-SCENARIOS_DIR = Path('/home/dzk/work/codework/personal/roy_world/xcode/xcode-tests/scenarios')
+# Default scenarios directory: <cwd>/.xcode/scenarios
+# Overridable via XCODE_SCENARIOS_DIR env var or --scenarios-dir CLI arg.
+# This matches the convention used by `xcode init` (which creates .xcode/{scenarios,traces}/)
+# so the backend, the webview, and the agent all agree on the same path.
+SCENARIOS_DIR = Path(os.environ.get('XCODE_SCENARIOS_DIR') or (Path.cwd() / '.xcode' / 'scenarios'))
+TRACES_DIR = Path(os.environ.get('XCODE_TRACES_DIR') or (Path.cwd() / '.xcode' / 'traces'))
+TRACES_DIR.mkdir(parents=True, exist_ok=True)
+SCENARIOS_DIR.mkdir(parents=True, exist_ok=True)
 SERVER_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -95,7 +100,11 @@ class XcodeHandler(BaseHTTPRequestHandler):
             return self._send_json({'status': 'ok', 'time': time.time()})
 
         if path == '/api/scenarios':
-            return self._send_json({'scenarios': self._list_scenarios()})
+            return self._send_json({
+                'scenarios': self._list_scenarios(),
+                'scenarios_dir': str(SCENARIOS_DIR),
+                'traces_dir': str(TRACES_DIR),
+            })
 
         if path == '/api/scenarios/mtime':
             return self._send_json(self._scenarios_mtime())
@@ -337,10 +346,22 @@ class XcodeHandler(BaseHTTPRequestHandler):
 
 
 def main():
+    global SCENARIOS_DIR, TRACES_DIR
     parser = argparse.ArgumentParser(description='Xcode Backend HTTP Server')
     parser.add_argument('--port', type=int, default=7800)
     parser.add_argument('--host', default='0.0.0.0')
+    parser.add_argument('--scenarios-dir', default=None,
+                        help='Scenarios directory (default: <cwd>/.xcode/scenarios)')
+    parser.add_argument('--traces-dir', default=None,
+                        help='Traces directory (default: <cwd>/.xcode/traces)')
     args = parser.parse_args()
+
+    if args.scenarios_dir:
+        SCENARIOS_DIR = Path(args.scenarios_dir)
+        SCENARIOS_DIR.mkdir(parents=True, exist_ok=True)
+    if args.traces_dir:
+        TRACES_DIR = Path(args.traces_dir)
+        TRACES_DIR.mkdir(parents=True, exist_ok=True)
 
     server = ThreadingHTTPServer((args.host, args.port), XcodeHandler)
     print(f"[xcode-server] Listening on http://{args.host}:{args.port}")

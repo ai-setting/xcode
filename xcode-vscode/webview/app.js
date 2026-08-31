@@ -104,17 +104,23 @@ async function loadScenarios() {
     return;
   }
   const scenarios = (r.data && r.data.scenarios) || [];
+  const scenariosDir = (r.data && r.data.scenarios_dir) || '';
+  const tracesDir = (r.data && r.data.traces_dir) || '';
   status.textContent = `ONLINE (${scenarios.length})`;
-  renderScenarios(scenarios);
+  renderScenarios(scenarios, scenariosDir, tracesDir);
 }
 
-function renderScenarios(scenarios) {
+function renderScenarios(scenarios, scenariosDir, tracesDir) {
   const el = document.getElementById('xc-scenarios');
+  // Render scenarios dir info (helps user verify backend is watching the right folder)
+  const dirInfo = (scenariosDir || tracesDir)
+    ? `<div class="xc-dir-info">📁 ${escapeHtml(scenariosDir || '(unset)')}<br>📊 ${escapeHtml(tracesDir || '(unset)')}</div>`
+    : '';
   if (!scenarios.length) {
-    el.innerHTML = '<div class="error">No scenarios found</div>';
+    el.innerHTML = dirInfo + '<div class="error">No scenarios found in this directory</div>';
     return;
   }
-  el.innerHTML = scenarios.map(s => `
+  el.innerHTML = dirInfo + scenarios.map(s => `
     <div class="scenario">
       <span class="scenario-name" title="${escapeHtml(s.file)}">${escapeHtml(s.name)}</span>
       <span class="scenario-actions">

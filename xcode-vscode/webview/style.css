@@ -384,6 +384,18 @@ body {
   font-size: 11px;
 }
 
+.xc-dir-info {
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-textBlockQuote-background);
+  border-left: 2px solid var(--vscode-textLink-foreground);
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
 .success {
   color: var(--vscode-terminal-ansiGreen);
   padding: 4px;
