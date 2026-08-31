@@ -84,6 +84,7 @@ class XcodeHandler(BaseHTTPRequestHandler):
                 'api': [
                     'GET  /api/health',
                     'GET  /api/scenarios',
+                    'GET  /api/scenarios/mtime',
                     'POST /api/scenarios/{name}/run',
                     'GET  /api/trace/{name}',
                     'POST /api/agent/chat',
@@ -95,6 +96,9 @@ class XcodeHandler(BaseHTTPRequestHandler):
 
         if path == '/api/scenarios':
             return self._send_json({'scenarios': self._list_scenarios()})
+
+        if path == '/api/scenarios/mtime':
+            return self._send_json(self._scenarios_mtime())
 
         if path.startswith('/api/trace/'):
             name = path[len('/api/trace/'):]
@@ -126,6 +130,16 @@ class XcodeHandler(BaseHTTPRequestHandler):
             for f in sorted(SCENARIOS_DIR.glob('*.py')):
                 scenarios.append({'name': f.stem, 'file': str(f)})
         return scenarios
+
+    def _scenarios_mtime(self):
+        """返回 scenarios 目录的最新 mtime + count（用于 webview 轮询）"""
+        if not SCENARIOS_DIR.exists():
+            return {'mtime': 0, 'count': 0}
+        files = list(SCENARIOS_DIR.glob('*.py'))
+        if not files:
+            return {'mtime': 0, 'count': 0}
+        mtime = max(f.stat().st_mtime for f in files)
+        return {'mtime': mtime, 'count': len(files)}
 
     def _run_scenario(self, name: str):
         scenario_file = SCENARIOS_DIR / f'{name}.py'

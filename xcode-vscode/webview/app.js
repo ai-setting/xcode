@@ -436,5 +436,25 @@ document.getElementById('xc-input').addEventListener('keydown', (e) => {
   }
 });
 
+// === Polling: scenarios 自动同步 ===
+let lastMtime = 0;
+
+async function pollScenarios() {
+  try {
+    const r = await fetchWithDetails(`${SERVER_URL}/api/scenarios/mtime`);
+    if (r.error || !r.ok) return;
+    const newMtime = (r.data && r.data.mtime) || 0;
+    if (newMtime !== lastMtime) {
+      lastMtime = newMtime;
+      loadScenarios();
+    }
+  } catch (e) {
+    // 静默失败，不打扰用户
+  }
+}
+
+// 每 5 秒轮询
+setInterval(pollScenarios, 5000);
+
 // === Boot ===
 loadScenarios();
