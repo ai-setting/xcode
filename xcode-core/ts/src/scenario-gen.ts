@@ -55,12 +55,13 @@ function templatePython(name: string, opts: GenOptions): string {
 import sys, os, json, traceback
 
 WORKSPACE = ${JSON.stringify(resolvePath(opts.workspace))}
+SCENARIO_NAME = ${JSON.stringify(name)}
 
 def main():
-    print(f"[scenario:{name}] starting")
-    print(f"[scenario:{name}] workspace={WORKSPACE}")
+    print(f"[scenario:{SCENARIO_NAME}] starting")
+    print(f"[scenario:{SCENARIO_NAME}] workspace={WORKSPACE}")
     # TODO: user-code-here (replace by LLM-generated body)
-    print(f"[scenario:{name}] OK")
+    print(f"[scenario:{SCENARIO_NAME}] OK")
 
 if __name__ == "__main__":
     try:

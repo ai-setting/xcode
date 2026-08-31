@@ -8,12 +8,13 @@ DO NOT EDIT THE HEADER DIRECTLY — run `xcode gen-scenario ontology_extraction 
 import sys, os, json, traceback
 
 WORKSPACE = "/home/dzk/work/codework/personal/roy_world/xcode"
+SCENARIO_NAME = "ontology_extraction"
 
 def main():
-    print(f"[scenario:{name}] starting")
-    print(f"[scenario:{name}] workspace={WORKSPACE}")
+    print(f"[scenario:{SCENARIO_NAME}] starting")
+    print(f"[scenario:{SCENARIO_NAME}] workspace={WORKSPACE}")
     # TODO: user-code-here (replace by LLM-generated body)
-    print(f"[scenario:{name}] OK")
+    print(f"[scenario:{SCENARIO_NAME}] OK")
 
 if __name__ == "__main__":
     try:
