@@ -18,18 +18,35 @@ import time
 import argparse
 import subprocess
 from pathlib import Path
-import platformdirs  # xdg-basedir 替代品（跨平台）
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
-# 默认用 XDG 标准目录（跨平台）：
-# - Linux:   ~/.local/share/xcode/{scenarios,traces}
-# - macOS:   ~/Library/Application Support/xcode/{scenarios,traces}
-# - Windows: %LOCALAPPDATA%\xcode\{scenarios,traces}
+# 默认用 XDG 标准目录（跨平台，纯 stdlib 实现）：
+# - Linux:   $XDG_DATA_HOME/xcode 或 ~/.local/share/xcode
+# - macOS:   ~/Library/Application Support/xcode
+# - Windows: %LOCALAPPDATA%\xcode
 # 可通过 XCODE_SCENARIOS_DIR / XCODE_TRACES_DIR 环境变量覆盖
 # 也可通过 --scenarios-dir / --traces-dir CLI 参数覆盖
 
-USER_DATA_DIR = Path(platformdirs.user_data_dir('xcode', 'xcode-team'))
+def _user_data_dir(appname='xcode', appauthor='xcode-team'):
+    """XDG 标准用户数据目录（跨平台）"""
+    import platform
+    system = platform.system()
+    home = Path(os.path.expanduser('~'))
+    if system == 'Windows':
+        # Windows: %LOCALAPPDATA%\<appname>
+        base = Path(os.environ.get('LOCALAPPDATA') or home / 'AppData' / 'Local')
+        return base / appname
+    elif system == 'Darwin':
+        # macOS: ~/Library/Application Support/<appname>
+        return home / 'Library' / 'Application Support' / appname
+    else:
+        # Linux/Unix: $XDG_DATA_HOME/<appname> 或 ~/.local/share/<appname>
+        xdg_data = os.environ.get('XDG_DATA_HOME')
+        base = Path(xdg_data) if xdg_data else home / '.local' / 'share'
+        return base / appname
+
+USER_DATA_DIR = _user_data_dir('xcode')
 DEFAULT_SCENARIOS_DIR = USER_DATA_DIR / 'scenarios'
 DEFAULT_TRACES_DIR = USER_DATA_DIR / 'traces'
 
