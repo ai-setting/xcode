@@ -43,6 +43,25 @@ class XcodeTracer:
     """核心 tracer，扩展 sys.settrace 能力"""
 
     def __init__(self, options):
+        # 兼容 dict / argparse.Namespace / SimpleNamespace
+        # 自动补全缺失字段（避免用户传 dict 时缺字段崩溃）
+        from types import SimpleNamespace
+        defaults = {
+            "filter": [],
+            "exclude": [],
+            "include_stdlib": False,
+            "include_dunders": False,
+            "max_depth": 999,
+            "no_args": False,
+        }
+        if isinstance(options, dict):
+            merged = {**defaults, **options}
+            options = SimpleNamespace(**merged)
+        else:
+            # argparse.Namespace：补全缺失属性
+            for k, v in defaults.items():
+                if not hasattr(options, k):
+                    setattr(options, k, v)
         self.options = options
         self.entries = []
         self.depth = 0
