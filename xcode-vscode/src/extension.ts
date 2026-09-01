@@ -182,34 +182,55 @@ async function openFileFromTrace(filePath: string, line: number) {
     return;
   }
 
-  // trace entry 应该已经是绝对路径（由后端写入）
   const absolutePath = filePath;
-
   if (!fs.existsSync(absolutePath)) {
     vscode.window.showErrorMessage(`xcode: file not found: ${absolutePath}`);
     return;
   }
 
   try {
-    // 检查文件是否已经在某 tab 打开，复用现有 tab（避免每次 click Call 都新开窗口）
-    const fileUri = vscode.Uri.file(absolutePath);
-    const existingEditor = vscode.window.visibleTextEditors.find(
-      e => e.document.uri.fsPath === fileUri.fsPath
-    );
+    // 先打开文档（如果未打开），得到 document 对象
+    let doc: vscode.TextDocument;
+    try {
+      doc = await vscode.workspace.openTextDocument(absolutePath);
+    } catch (e: any) {
+      vscode.window.showErrorMessage(`xcode: cannot open document: ${e?.message ?? e}`);
+      return;
+    }
+
+    // 用 tabGroups 查找文件是否已打开（覆盖 visible + hidden 的所有 tab）
+    // tabGroups 是所有 tab 的分组（每个 view column 一个 group）
+    let existingEditor: vscode.TextEditor | undefined;
+    let existingColumn: vscode.ViewColumn | undefined;
+    for (const tabGroup of vscode.window.tabGroups.all) {
+      for (const tab of tabGroup.tabs) {
+        if (
+          tab.input instanceof vscode.TabInputText &&
+          tab.input.uri.fsPath === doc.uri.fsPath
+        ) {
+          // 文件已在某 tab 打开
+          existingEditor = vscode.window.visibleTextEditors.find(
+            e => e.document === doc || e.document.uri.fsPath === doc.uri.fsPath
+          );
+          if (existingEditor) {
+            existingColumn = tabGroup.viewColumn;
+            break;
+          }
+        }
+      }
+      if (existingEditor) break;
+    }
 
     let editor: vscode.TextEditor;
-    if (existingEditor) {
-      // 复用现有 tab
-      editor = existingEditor;
-      // 确保显示该 tab（焦点切到它）
-      await vscode.window.showTextDocument(editor.document, {
-        viewColumn: editor.viewColumn,
+    if (existingEditor && existingColumn !== undefined) {
+      // 复用现有 tab（同一个 view column）
+      editor = await vscode.window.showTextDocument(doc, {
+        viewColumn: existingColumn,
         preserveFocus: false,
         preview: false,
       });
     } else {
       // 新 tab（在 Beside 分窗打开）
-      const doc = await vscode.workspace.openTextDocument(absolutePath);
       editor = await vscode.window.showTextDocument(doc, {
         viewColumn: vscode.ViewColumn.Beside,
         preserveFocus: false,
