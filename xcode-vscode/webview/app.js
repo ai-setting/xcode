@@ -422,7 +422,28 @@ function bindTraceButtons() {
  * - 不删除/重建子节点 DOM（避免 args/result 折叠状态丢失）
  * - 不重新绑定按钮事件（避免重复绑定）
  * - 用 data-parent-id 找到所有直接子节点，批量切换 display
+ *
+ * 关键改进（v0.3.22）：
+ * - 折叠时递归隐藏所有后代（不仅是直接子节点），孙节点继承隐藏
+ * - 展开时检查每个后代的祖先链（_collapsed），如祖先折叠则保持隐藏
+ * - 通过 BFS 遍历后代 DOM，避免重复查询
  */
+function getAllDescendantsEl(rootId) {
+  // BFS 找所有后代 DOM 元素（子节点、孙子、曾孙...）
+  const all = [];
+  const queue = [String(rootId)];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const children = document.querySelectorAll(`.trace-node[data-parent-id="${current}"]`);
+    children.forEach(child => {
+      all.push(child);
+      const childId = child.dataset.nodeId;
+      if (childId) queue.push(childId);
+    });
+  }
+  return all;
+}
+
 function toggleTraceChildren(nodeId) {
   // 找到当前节点的 data
   const node = traceNodeById[parseInt(nodeId, 10)] || traceNodeById[String(nodeId)];
@@ -433,15 +454,30 @@ function toggleTraceChildren(nodeId) {
   // 翻转状态
   node._collapsed = !node._collapsed;
 
-  // 用 CSS display 切换：找到所有直接子节点
-  const childSelector = `.trace-node[data-parent-id="${nodeId}"]`;
-  const displayValue = node._collapsed ? 'none' : '';
+  // 找到所有后代 DOM 元素（BFS，包括子节点、孙子、曾孙...）
+  const allDescendants = getAllDescendantsEl(nodeId);
 
-  let affected = 0;
-  document.querySelectorAll(childSelector).forEach(el => {
-    el.style.display = displayValue;
-    affected++;
-  });
+  // 应用 display：
+  // - 当前节点折叠 → 所有后代隐藏
+  // - 当前节点展开 → 后代展示（除非它的某祖先 _collapsed）
+  for (const desc of allDescendants) {
+    if (node._collapsed) {
+      desc.style.display = 'none';
+    } else {
+      // 检查祖先链是否折叠
+      const ancestorsAttr = desc.dataset.ancestors || '';
+      const ancestorIds = ancestorsAttr.split(',').filter(Boolean).map(Number);
+      let shouldHide = false;
+      for (const aId of ancestorIds) {
+        const a = traceNodeById[aId];
+        if (a && a._collapsed) {
+          shouldHide = true;
+          break;
+        }
+      }
+      desc.style.display = shouldHide ? 'none' : '';
+    }
+  }
 
   // 更新按钮文字（▶ 折叠 / ▼ 展开）
   const btn = document.querySelector(`.xc-collapse-btn[data-node-id="${nodeId}"]`);
@@ -451,7 +487,7 @@ function toggleTraceChildren(nodeId) {
     btn.setAttribute('title', node._collapsed ? 'Expand children' : 'Collapse children');
   }
 
-  console.log(`[xcode] toggleTraceChildren(${nodeId}) collapsed=${node._collapsed} affected=${affected}`);
+  console.log(`[xcode] toggleTraceChildren(${nodeId}) collapsed=${node._collapsed} descendants=${allDescendants.length}`);
 }
 
 // === Refresh ===
