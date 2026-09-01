@@ -191,19 +191,33 @@ async function openFileFromTrace(filePath: string, line: number) {
   }
 
   try {
-    const doc = await vscode.workspace.openTextDocument(absolutePath);
-    
-    // 如果是 def 跳转：在当前编辑器定位行
-    // 如果是 call 跳转：在分窗打开
-    // 区分方式：用不同 type 的消息
-    // 但是 openFileFromTrace 当前没传 type...
-    // 我们默认用 Beside（分窗）
-    const editor = await vscode.window.showTextDocument(doc, {
-      viewColumn: vscode.ViewColumn.Beside,
-      preserveFocus: false,
-      preview: false,
-    });
-    
+    // 检查文件是否已经在某 tab 打开，复用现有 tab（避免每次 click Call 都新开窗口）
+    const fileUri = vscode.Uri.file(absolutePath);
+    const existingEditor = vscode.window.visibleTextEditors.find(
+      e => e.document.uri.fsPath === fileUri.fsPath
+    );
+
+    let editor: vscode.TextEditor;
+    if (existingEditor) {
+      // 复用现有 tab
+      editor = existingEditor;
+      // 确保显示该 tab（焦点切到它）
+      await vscode.window.showTextDocument(editor.document, {
+        viewColumn: editor.viewColumn,
+        preserveFocus: false,
+        preview: false,
+      });
+    } else {
+      // 新 tab（在 Beside 分窗打开）
+      const doc = await vscode.workspace.openTextDocument(absolutePath);
+      editor = await vscode.window.showTextDocument(doc, {
+        viewColumn: vscode.ViewColumn.Beside,
+        preserveFocus: false,
+        preview: false,
+      });
+    }
+
+    // 跳到目标行
     const targetLine = Math.max(0, (line || 1) - 1);
     const range = new vscode.Range(targetLine, 0, targetLine, 0);
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);

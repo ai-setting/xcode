@@ -335,8 +335,25 @@ function renderTraceNode(n, depth, ancestors) {
   // ancestors：祖先节点 id 列表（用于 CSS 折叠子节点）
   const ancestorsAttr = ancestors.length ? ` data-ancestors="${ancestors.join(',')}"` : '';
 
+  // 继承隐藏：如果任一祖先 _collapsed，子节点初始就 display:none
+  // 自己 _collapsed 不会让自己隐藏（自己的 ▶/▼ 按钮仍可见）
+  let displayStyle = '';
+  for (const ancestorId of ancestors) {
+    const ancestor = traceNodeById[ancestorId];
+    if (ancestor && ancestor._collapsed) {
+      displayStyle = 'display: none;';
+      break;
+    }
+  }
+  // 如果 _collapsed，渲染的 children 会通过 CSS 隐藏（不需要 skip rendering）
+
+  // data-parent-id：父节点 id（如果非 root），便于 CSS display 切换
+  const parentAttr = ancestors.length > 0
+    ? ` data-parent-id="${ancestors[ancestors.length - 1]}"`
+    : '';
+
   let html = `
-    <div class="trace-node ${statusClass}" data-depth="${depth}" data-node-id="${n.id}"${ancestorsAttr}>
+    <div class="trace-node ${statusClass}" data-depth="${depth}" data-node-id="${n.id}"${ancestorsAttr}${parentAttr} style="${displayStyle}">
       <div class="trace-header">
         ${collapseBtn}
         <span class="trace-status">${statusIcon}</span>
@@ -356,9 +373,10 @@ function renderTraceNode(n, depth, ancestors) {
     </div>
   `;
 
-  // 如果当前节点 _collapsed，不渲染子节点（子节点不输出到 DOM）
-  // 子节点可以稍后通过 toggleTraceChildren 触发渲染
-  if (hasChildren && !n._collapsed) {
+  // 始终渲染子节点（不用 _collapsed 跳过）
+  // 子节点初始可见性由 CSS display 决定（受祖先 _collapsed 影响）
+  // 这样 toggleTraceChildren 用 CSS display 切换，不删/重建 DOM
+  if (hasChildren) {
     const childAncestors = [...ancestors, n.id];
     for (const child of n.children) {
       html += renderTraceNode(child, depth + 1, childAncestors);
@@ -398,8 +416,12 @@ function bindTraceButtons() {
 
 /**
  * 切换节点的折叠状态。
- * 实现：修改数据的 _collapsed 字段，然后重新渲染该子树。
- * 这样设计的好处：DOM 只有真正可见的部分，避免大量隐藏节点堆积。
+ * 实现：修改数据的 _collapsed 字段，然后用 CSS display 切换可见性。
+ *
+ * 关键改进（v0.3.20）：
+ * - 不删除/重建子节点 DOM（避免 args/result 折叠状态丢失）
+ * - 不重新绑定按钮事件（避免重复绑定）
+ * - 用 data-parent-id 找到所有直接子节点，批量切换 display
  */
 function toggleTraceChildren(nodeId) {
   // 找到当前节点的 data
@@ -410,36 +432,26 @@ function toggleTraceChildren(nodeId) {
   }
   // 翻转状态
   node._collapsed = !node._collapsed;
-  // 找到该节点对应的 DOM 元素，重新渲染子树 HTML 并替换
-  const currentNodeEl = document.querySelector(`.trace-node[data-node-id="${nodeId}"]`);
-  if (!currentNodeEl) return;
-  // 计算当前节点的 depth 和 ancestors（从 DOM 属性读）
-  const depth = parseInt(currentNodeEl.dataset.depth || '0', 10);
-  const ancestorsStr = currentNodeEl.dataset.ancestors || '';
-  const ancestors = ancestorsStr ? ancestorsStr.split(',').filter(Boolean).map(s => parseInt(s, 10)) : [];
-  // 重新渲染这个节点的 HTML（包括其 children）
-  const newHtml = renderTraceNode(node, depth, ancestors);
-  // 用临时 div 解析新 HTML
-  const tmp = document.createElement('div');
-  tmp.innerHTML = newHtml;
-  // 替换：移除 currentNodeEl 之后的所有同级元素到下一个同级 trace-node 之前，
-  // 然后把 tmp 里除第一个元素（currentNodeEl 的新版本）外的部分插入
-  const newNodeEl = tmp.firstElementChild;
-  const parent = currentNodeEl.parentNode;
-  // 把 currentNodeEl 替换成 newNodeEl
-  parent.replaceChild(newNodeEl, currentNodeEl);
-  // 插入 newNodeEl 后面的部分（即渲染出来的子节点）
-  while (newNodeEl.nextSibling) {
-    parent.removeChild(newNodeEl.nextSibling);
+
+  // 用 CSS display 切换：找到所有直接子节点
+  const childSelector = `.trace-node[data-parent-id="${nodeId}"]`;
+  const displayValue = node._collapsed ? 'none' : '';
+
+  let affected = 0;
+  document.querySelectorAll(childSelector).forEach(el => {
+    el.style.display = displayValue;
+    affected++;
+  });
+
+  // 更新按钮文字（▶ 折叠 / ▼ 展开）
+  const btn = document.querySelector(`.xc-collapse-btn[data-node-id="${nodeId}"]`);
+  if (btn) {
+    btn.textContent = node._collapsed ? '▶' : '▼';
+    btn.setAttribute('data-collapsed', node._collapsed ? '1' : '0');
+    btn.setAttribute('title', node._collapsed ? 'Expand children' : 'Collapse children');
   }
-  let cursor = newNodeEl.nextSibling;
-  const fragments = Array.from(tmp.children).slice(1);
-  for (const frag of fragments) {
-    parent.insertBefore(frag, cursor);
-    cursor = frag.nextSibling;
-  }
-  // 更新按钮状态 + 重新绑定所有按钮事件
-  bindTraceButtons();
+
+  console.log(`[xcode] toggleTraceChildren(${nodeId}) collapsed=${node._collapsed} affected=${affected}`);
 }
 
 // === Refresh ===
